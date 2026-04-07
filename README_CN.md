@@ -101,7 +101,7 @@ MemTree 会：
 ### 4. 配置 CLAUDE.md（重要！）
 
 在项目的 `CLAUDE.md` 中添加 MemTree 规则，确保 Claude Code 每次会话都读取 `.memory/`。
-详见 [CLAUDE.md 集成指南](docs/claude-md-integration.md)。
+详见 [CLAUDE.md 集成指南](docs/claude-md-integration_cn.md)。
 
 ## 你会得到什么
 
@@ -248,10 +248,10 @@ memtree/
 
 ## 文档
 
-- [快速开始](docs/getting-started.md) — 5 分钟上手
-- [设计原则](docs/design-principles.md) — MemTree 为什么这样设计
-- [深度补充指南](docs/depth-enrichment.md) — bootstrap 后如何补充深度分析
-- [CLAUDE.md 集成](docs/claude-md-integration.md) — 让 Claude Code 每次会话都读 .memory/
+- [快速开始](docs/getting-started_cn.md) — 5 分钟上手
+- [设计原则](docs/design-principles_cn.md) — MemTree 为什么这样设计
+- [深度补充指南](docs/depth-enrichment_cn.md) — bootstrap 后如何补充深度分析
+- [CLAUDE.md 集成](docs/claude-md-integration_cn.md) — 让 Claude Code 每次会话都读 .memory/
 
 ## 环境要求
 
