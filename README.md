@@ -239,6 +239,13 @@ memtree/
 └── examples/                # Sample output from a real project
 ```
 
+## Documentation
+
+- [Getting Started](docs/getting-started.md) — 5-minute setup guide
+- [Design Principles](docs/design-principles.md) — Why MemTree is built this way
+- [Depth Enrichment](docs/depth-enrichment.md) — How to add deep analysis after bootstrap
+- [CLAUDE.md Integration](docs/claude-md-integration.md) — Make Claude Code read .memory/ every session
+
 ## Requirements
 
 - [Claude Code](https://claude.ai/code) (CLI, Desktop, or IDE extension)

@@ -246,6 +246,13 @@ memtree/
 └── examples/                # 真实项目的脱敏示例输出
 ```
 
+## 文档
+
+- [快速开始](docs/getting-started.md) — 5 分钟上手
+- [设计原则](docs/design-principles.md) — MemTree 为什么这样设计
+- [深度补充指南](docs/depth-enrichment.md) — bootstrap 后如何补充深度分析
+- [CLAUDE.md 集成](docs/claude-md-integration.md) — 让 Claude Code 每次会话都读 .memory/
+
 ## 环境要求
 
 - [Claude Code](https://claude.ai/code)（CLI、桌面端、或 IDE 插件）
