@@ -9,112 +9,33 @@ Usage:
     python3 scripts/generate-skeletons.py --config path/to/memtree.config.yaml
 """
 from __future__ import annotations
-import ast, hashlib, json, re, sys
+import ast, json, re, sys
 from pathlib import Path
 from datetime import datetime, timezone
 from collections import defaultdict
-from typing import Optional
+
+from memtree_common import (
+    load_config,
+    normalize_lang,
+    detect_layer,
+    compute_hash,
+    build_path_map as _common_build_path_map,
+    source_to_memory as _common_source_to_memory,
+)
 
 
-def load_config(config_path: Path | None = None) -> dict:
-    """Load memtree.config.yaml, falling back to example if missing."""
-    try:
-        import yaml
-    except ImportError:
-        print("ERROR: PyYAML is required. Install with: pip install pyyaml")
-        sys.exit(1)
-
-    if config_path is None:
-        config_path = Path("memtree.config.yaml")
-    if not config_path.exists():
-        example = config_path.parent / "memtree.config.example.yaml"
-        if example.exists():
-            print(f"WARNING: {config_path} not found. Using {example} as fallback.")
-            config_path = example
-        else:
-            print(f"ERROR: {config_path} not found. Copy memtree.config.example.yaml to memtree.config.yaml first.")
-            sys.exit(1)
-    return yaml.safe_load(config_path.read_text())
-
-
-def build_path_map(config: dict) -> tuple[dict, Path, Path, set[str]]:
-    """Build PATH_MAP, project root, memory dir, and exclude set from config."""
+def _build_path_map_with_context(config: dict) -> tuple[dict[str, tuple[str, str]], Path, Path, set[str]]:
+    """Wrap common build_path_map with project_root, memory_dir, exclude set."""
     project_root = Path(config.get("project", {}).get("root", ".")).resolve()
     memory_dir = project_root / ".memory"
     exclude = set(config.get("exclude", [
         "__pycache__", "node_modules", ".nuxt", "dist", "build", "tests", "migrations", ".git"
     ]))
-
-    # Build path_map: source_prefix -> (memory_prefix, service_name)
-    path_map: dict[str, tuple[str, str]] = {}
-    if "path_map" in config:
-        # Explicit path_map override
-        for src_prefix, mem_prefix in config["path_map"].items():
-            svc_name = mem_prefix.rstrip("/")
-            path_map[src_prefix] = (mem_prefix if mem_prefix.endswith("/") else mem_prefix + "/", svc_name)
-    else:
-        # Auto-generate from services
-        for svc in config.get("services", []):
-            name = svc["name"]
-            src_path = svc["path"]
-            if not src_path.endswith("/"):
-                src_path += "/"
-            path_map[src_path] = (f"{name}/", name)
-
+    path_map = _common_build_path_map(config)
     return path_map, project_root, memory_dir, exclude
 
 
 NOW = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-def source_to_memory(rel_path: str, path_map: dict[str, tuple[str, str]]) -> tuple[str, str] | None:
-    """Returns (memory_rel_path, service_name) or None."""
-    for prefix, (mem_prefix, svc) in path_map.items():
-        if rel_path.startswith(prefix):
-            rest = rel_path[len(prefix):]
-            return f"{mem_prefix}{rest}.md", svc
-    return None
-
-
-def compute_hash(filepath: Path) -> str:
-    """Compute a short SHA256 hash of file contents."""
-    return hashlib.sha256(filepath.read_bytes()).hexdigest()[:8]
-
-
-def detect_layer(rel_path: str, service: str) -> str:
-    """Detect the architectural layer of a file from its path."""
-    p = rel_path.lower()
-    if "router" in p or "route" in p or "api/v1" in p: return "router"
-    if "service" in p: return "service"
-    if "model" in p: return "model"
-    if "schema" in p: return "schema"
-    if "page" in p: return "page"
-    if "component" in p or "modal" in p or "card" in p: return "component"
-    if "composable" in p or "hook" in p: return "composable"
-    if "handler" in p: return "handler"
-    if "alarm" in p or "task" in p: return "task"
-    if "util" in p: return "utility"
-    if "middleware" in p: return "middleware"
-    if "config" in p or "constant" in p: return "config"
-    if "store" in p: return "store"
-    if "type" in p: return "type"
-    if "plugin" in p: return "plugin"
-    if "core" in p: return "core"
-    return "module"
-
-
-def normalize_lang(lang: str) -> str:
-    """Normalize language string to internal category."""
-    lang = lang.lower()
-    if lang in ("python", "py"):
-        return "python"
-    if lang in ("vue", "nuxt"):
-        return "vue_ts"
-    if lang in ("tsx", "react", "next"):
-        return "tsx"
-    if lang in ("ts", "typescript", "javascript", "js"):
-        return "ts"
-    return lang
 
 
 def extract_python_info(filepath: Path, root: Path) -> dict:
@@ -237,14 +158,17 @@ def generate_memory_file(
     project_root: Path,
     path_map: dict,
     project_name: str,
+    cached_info: dict | None = None,
 ) -> str:
     """Generate a .memory/ skeleton file for a source file."""
     rel = str(filepath.relative_to(root))
     src_rel = str(filepath.relative_to(project_root))
-    layer = detect_layer(rel, service)
+    layer = detect_layer(rel)
     src_hash = compute_hash(filepath)
 
-    if lang == "python":
+    if cached_info is not None:
+        info = cached_info
+    elif lang == "python":
         info = extract_python_info(filepath, root)
     else:
         info = extract_ts_info(filepath, root)
@@ -254,7 +178,7 @@ def generate_memory_file(
     for imp in info.get("imports", []):
         dep_src = str(root / imp)
         dep_rel = str(Path(dep_src).relative_to(project_root))
-        result = source_to_memory(dep_rel, path_map)
+        result = _common_source_to_memory(dep_rel, path_map)
         if result:
             depends_on.append(result[0].replace(".md", ""))
 
@@ -263,7 +187,7 @@ def generate_memory_file(
     file_key = str(filepath)
     for dep_file in reverse_deps.get(file_key, []):
         dep_rel2 = str(Path(dep_file).relative_to(project_root))
-        result = source_to_memory(dep_rel2, path_map)
+        result = _common_source_to_memory(dep_rel2, path_map)
         if result:
             depended_by.append(result[0].replace(".md", ""))
 
@@ -345,7 +269,7 @@ def main() -> None:
             config_path = Path(sys.argv[i + 1])
 
     config = load_config(config_path)
-    path_map, project_root, memory_dir, exclude = build_path_map(config)
+    path_map, project_root, memory_dir, exclude = _build_path_map_with_context(config)
     project_name = config.get("project", {}).get("name", "Project")
 
     # Build service roots from config
@@ -362,8 +286,9 @@ def main() -> None:
     if chains_path.exists():
         chains_data = json.loads(chains_path.read_text())
 
-    # First pass: build import graph for reverse deps
+    # First pass: build import graph for reverse deps + cache extracted info
     reverse_deps: dict[str, set[str]] = defaultdict(set)
+    info_cache: dict[str, dict] = {}  # filepath -> extracted info (avoids double-read)
     for svc_name, (root, lang) in service_roots.items():
         if not root.exists():
             continue
@@ -378,6 +303,7 @@ def main() -> None:
                     info = extract_python_info(f, root)
                 else:
                     info = extract_ts_info(f, root)
+                info_cache[str(f)] = info
                 for imp in info.get("imports", []):
                     dep_path = str(root / imp)
                     reverse_deps[dep_path].add(str(f))
@@ -402,7 +328,7 @@ def main() -> None:
         print(f"Generating {svc_name}: {len(svc_files)} files...")
         for f in sorted(svc_files):
             rel_to_root = str(f.relative_to(project_root))
-            result = source_to_memory(rel_to_root, path_map)
+            result = _common_source_to_memory(rel_to_root, path_map)
             if not result:
                 continue
             mem_rel, svc = result
@@ -412,6 +338,7 @@ def main() -> None:
                 content = generate_memory_file(
                     f, root, svc, mem_rel, lang, reverse_deps,
                     project_root, path_map, project_name,
+                    cached_info=info_cache.get(str(f)),
                 )
                 mem_path.parent.mkdir(parents=True, exist_ok=True)
                 mem_path.write_text(content)

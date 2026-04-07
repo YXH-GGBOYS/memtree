@@ -11,28 +11,8 @@ Usage:
 from __future__ import annotations
 import re, sys
 from pathlib import Path
-from collections import defaultdict
 
-
-def load_config(config_path: Path | None = None) -> dict:
-    """Load memtree.config.yaml, falling back to example if missing."""
-    try:
-        import yaml
-    except ImportError:
-        print("ERROR: PyYAML is required. Install with: pip install pyyaml")
-        sys.exit(1)
-
-    if config_path is None:
-        config_path = Path("memtree.config.yaml")
-    if not config_path.exists():
-        example = config_path.parent / "memtree.config.example.yaml"
-        if example.exists():
-            print(f"WARNING: {config_path} not found. Using {example} as fallback.")
-            config_path = example
-        else:
-            print(f"ERROR: {config_path} not found. Copy memtree.config.example.yaml to memtree.config.yaml first.")
-            sys.exit(1)
-    return yaml.safe_load(config_path.read_text())
+from memtree_common import load_config
 
 
 SKIP_DIRS = {"prompts", "scripts", "workers", "cross-refs", ".draft", "db"}

@@ -10,8 +10,11 @@
 
 ```bash
 git clone https://github.com/YXH-GGBOYS/memtree.git ~/memtree
+cd ~/memtree
+pip install -r requirements.txt       # PyYAML
 
 # Copy skills to Claude Code
+mkdir -p ~/.claude/skills
 cp -r ~/memtree/skills/memtree_* ~/.claude/skills/
 ```
 
@@ -72,7 +75,7 @@ Result: AI avoids the user_id pitfall and fixes correctly on first try.
 
 **Automatic** (recommended): Install the git hook
 ```bash
-cp scripts/pre-commit-memtree.py .git/hooks/pre-commit
+cp ~/memtree/scripts/pre-commit-memtree.py .git/hooks/pre-commit
 chmod +x .git/hooks/pre-commit
 ```
 Every commit automatically detects stale .memory/ files.

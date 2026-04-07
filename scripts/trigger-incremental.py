@@ -11,7 +11,7 @@ Usage:
 Typically invoked automatically by a Claude Code PostToolUse hook (see hook-post-edit.sh).
 """
 from __future__ import annotations
-import sys, os
+import sys
 from pathlib import Path
 
 # Try to import fcntl (Unix only); on Windows, skip file locking
@@ -21,13 +21,12 @@ try:
 except ImportError:
     HAS_FCNTL = False
 
-def find_project_root() -> Path:
-    """Find project root by looking for memtree.config.yaml or .memory/"""
-    cwd = Path.cwd()
-    for parent in [cwd] + list(cwd.parents):
-        if (parent / "memtree.config.yaml").exists() or (parent / ".memory").exists():
-            return parent
-    return cwd
+from memtree_common import (
+    find_project_root,
+    load_config,
+    build_path_map,
+    compute_hash,
+)
 
 PROJECT_ROOT = find_project_root()
 MEMORY_DIR = PROJECT_ROOT / ".memory"
@@ -35,47 +34,22 @@ PENDING = MEMORY_DIR / ".pending-update"
 LOCK_FILE = MEMORY_DIR / ".lock"
 
 
-def load_path_map() -> tuple[dict[str, str], dict[str, str]]:
-    """Load path mapping from memtree.config.yaml.
+def load_path_maps() -> tuple[dict[str, str], dict[str, str]]:
+    """Load path mapping via common load_config + build_path_map.
 
     Returns:
         Tuple of (relative_path_map, absolute_path_map).
         Each maps source prefix -> .memory/ prefix.
     """
-    config_candidates = [
-        MEMORY_DIR.parent / "memtree.config.yaml",
-        MEMORY_DIR / "memtree.config.yaml",
-        Path("memtree.config.yaml"),
-    ]
-
-    config = None
-    for candidate in config_candidates:
-        if candidate.exists():
-            try:
-                import yaml
-                config = yaml.safe_load(candidate.read_text())
-                break
-            except ImportError:
-                break
-
+    config = load_config(silent=True)
     if config is None:
-        # Fallback: no config found, cannot map paths
         return {}, {}
 
     project_root = Path(config.get("project", {}).get("root", ".")).resolve()
+    raw_map = build_path_map(config)
 
-    path_map: dict[str, str] = {}
-    if "path_map" in config:
-        for src_prefix, mem_prefix in config["path_map"].items():
-            path_map[src_prefix] = mem_prefix if mem_prefix.endswith("/") else mem_prefix + "/"
-    else:
-        for svc in config.get("services", []):
-            name = svc["name"]
-            src_path = svc["path"]
-            if not src_path.endswith("/"):
-                src_path += "/"
-            path_map[src_path] = f"{name}/"
-
+    # Flatten to simple str -> str maps
+    path_map: dict[str, str] = {k: v[0] for k, v in raw_map.items()}
     abs_path_map = {str(project_root / k): v for k, v in path_map.items()}
     return path_map, abs_path_map
 
@@ -112,7 +86,7 @@ def main() -> None:
     if not any(src_path.endswith(ext) for ext in valid_exts):
         return
 
-    path_map, abs_path_map = load_path_map()
+    path_map, abs_path_map = load_path_maps()
     if not path_map and not abs_path_map:
         return
 

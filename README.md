@@ -59,14 +59,11 @@ Your Codebase (913 files)
 ### 1. Install
 
 ```bash
-git clone https://github.com/YXH-GGBOYS/memtree.git
-cd memtree
+git clone https://github.com/YXH-GGBOYS/memtree.git ~/memtree
+cd ~/memtree
+pip install -r requirements.txt      # PyYAML
 mkdir -p ~/.claude/skills
 cp -r skills/memtree_* ~/.claude/skills/
-
-# Set MEMTREE_HOME so skills can find prompts and scripts
-echo 'export MEMTREE_HOME=~/memtree' >> ~/.zshrc  # or ~/.bashrc
-source ~/.zshrc
 ```
 
 ### 2. Initialize

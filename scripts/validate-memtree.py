@@ -13,28 +13,10 @@ Usage:
     python3 scripts/validate-memtree.py --config path/to/memtree.config.yaml
 """
 from __future__ import annotations
-import re, sys, hashlib
+import re, sys
 from pathlib import Path
 
-
-def load_config(config_path: Path | None = None) -> dict:
-    """Load memtree.config.yaml, falling back to example if missing."""
-    try:
-        import yaml
-    except ImportError:
-        print("ERROR: PyYAML is required. Install with: pip install pyyaml")
-        sys.exit(1)
-
-    if config_path is None:
-        config_path = Path("memtree.config.yaml")
-    if not config_path.exists():
-        example = config_path.parent / "memtree.config.example.yaml"
-        if example.exists():
-            config_path = example
-        else:
-            print(f"ERROR: {config_path} not found.")
-            sys.exit(1)
-    return yaml.safe_load(config_path.read_text())
+from memtree_common import load_config, compute_hash
 
 
 def main() -> None:
@@ -53,7 +35,7 @@ def main() -> None:
 
     errors: list[str] = []
     warnings: list[str] = []
-    stats = {"total": 0, "hash_ok": 0, "hash_stale": 0, "hash_orphan": 0, "asym": 0}
+    stats = {"total": 0, "hash_ok": 0, "hash_stale": 0, "hash_orphan": 0}
 
     skip_files = {"INDEX.md", "ROOT.md", "PITFALLS.md"}
     skip_dirs = {"prompts", "scripts", "workers", "cross-refs", ".draft", "db"}
@@ -77,7 +59,7 @@ def main() -> None:
         if m_hash and m_src:
             src = project_root / m_src.group(1).strip()
             if src.exists():
-                actual = hashlib.sha256(src.read_bytes()).hexdigest()[:8]
+                actual = compute_hash(src)
                 if actual == m_hash.group(1):
                     stats["hash_ok"] += 1
                 else:

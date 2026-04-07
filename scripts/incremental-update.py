@@ -10,30 +10,19 @@ Usage:
     python3 scripts/incremental-update.py --config path/to/cfg   # Custom config path
 """
 from __future__ import annotations
-import ast, hashlib, json, re, sys
+import ast, json, re, sys
 from pathlib import Path
 from datetime import datetime, timezone
-from collections import defaultdict
 
-
-def load_config(config_path: Path | None = None) -> dict:
-    """Load memtree.config.yaml, falling back to example if missing."""
-    try:
-        import yaml
-    except ImportError:
-        print("ERROR: PyYAML is required. Install with: pip install pyyaml")
-        sys.exit(1)
-
-    if config_path is None:
-        config_path = Path("memtree.config.yaml")
-    if not config_path.exists():
-        example = config_path.parent / "memtree.config.example.yaml"
-        if example.exists():
-            config_path = example
-        else:
-            print(f"ERROR: {config_path} not found.")
-            sys.exit(1)
-    return yaml.safe_load(config_path.read_text())
+from memtree_common import (
+    load_config,
+    normalize_lang,
+    detect_layer,
+    compute_hash,
+    build_path_map,
+    extract_python_imports as _common_extract_python_imports,
+    extract_ts_imports as _common_extract_ts_imports,
+)
 
 
 def build_mappings(config: dict) -> tuple[dict[str, str], dict[str, tuple[str, str]], Path, Path]:
@@ -45,28 +34,13 @@ def build_mappings(config: dict) -> tuple[dict[str, str], dict[str, tuple[str, s
     project_root = Path(config.get("project", {}).get("root", ".")).resolve()
     memory_dir = project_root / ".memory"
 
-    # mem_prefix -> src_prefix (for memory_to_source)
+    src_to_mem = build_path_map(config)
+
+    # Build reverse map: mem_prefix -> src_prefix
     mem_to_src: dict[str, str] = {}
-    # src_prefix -> (mem_prefix, service_name) (for source_to_memory)
-    src_to_mem: dict[str, tuple[str, str]] = {}
+    for sp, (mp, _name) in src_to_mem.items():
+        mem_to_src[mp] = sp
 
-    if "path_map" in config:
-        for src_prefix, mem_prefix in config["path_map"].items():
-            name = mem_prefix.rstrip("/")
-            mp = mem_prefix if mem_prefix.endswith("/") else mem_prefix + "/"
-            sp = src_prefix if src_prefix.endswith("/") else src_prefix + "/"
-            mem_to_src[mp] = sp
-            src_to_mem[sp] = (mp, name)
-    else:
-        for svc in config.get("services", []):
-            name = svc["name"]
-            src_path = svc["path"]
-            if not src_path.endswith("/"):
-                src_path += "/"
-            mem_to_src[f"{name}/"] = src_path
-            src_to_mem[src_path] = (f"{name}/", name)
-
-    # Also build service root map for import resolution
     return mem_to_src, src_to_mem, project_root, memory_dir
 
 
@@ -78,13 +52,6 @@ def build_service_roots(config: dict, project_root: Path) -> dict[str, tuple[Pat
         lang = normalize_lang(svc.get("lang", "python"))
         roots[name] = (project_root / svc["path"], lang)
     return roots
-
-
-def normalize_lang(lang: str) -> str:
-    lang = lang.lower()
-    if lang in ("python", "py"):
-        return "python"
-    return "ts"
 
 
 NOW = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -99,71 +66,6 @@ def memory_to_source(mem_rel: str, mem_to_src: dict[str, str], project_root: Pat
                 rest = rest[:-3]
             return project_root / src_prefix / rest
     return None
-
-
-def compute_hash(filepath: Path) -> str:
-    return hashlib.sha256(filepath.read_bytes()).hexdigest()[:8]
-
-
-def detect_layer(rel_path: str) -> str:
-    p = rel_path.lower()
-    if "router" in p or "route" in p or "api/v1" in p: return "router"
-    if "service" in p: return "service"
-    if "model" in p: return "model"
-    if "schema" in p: return "schema"
-    if "page" in p: return "page"
-    if "component" in p or "modal" in p: return "component"
-    if "composable" in p or "hook" in p: return "composable"
-    if "handler" in p: return "handler"
-    if "alarm" in p or "task" in p: return "task"
-    if "util" in p: return "utility"
-    return "module"
-
-
-def extract_python_imports(filepath: Path, root: Path) -> list[str]:
-    """Extract project-internal imports from Python file."""
-    try:
-        content = filepath.read_text(errors="replace")
-        tree = ast.parse(content, filename=str(filepath))
-    except Exception:
-        return []
-    imports: list[str] = []
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom) and node.module:
-            mod = node.module
-            if mod.startswith("app."):
-                mod_path = mod.replace("app.", "").replace(".", "/")
-                candidate = root / (mod_path + ".py")
-                if candidate.exists():
-                    imports.append(str(candidate.relative_to(root)))
-    return imports
-
-
-def extract_ts_imports(filepath: Path, root: Path) -> list[str]:
-    """Extract project-internal imports from TS/Vue files."""
-    try:
-        content = filepath.read_text(errors="replace")
-    except Exception:
-        return []
-    imports: list[str] = []
-    for m in re.finditer(r'''(?:import|from)\s+.*?['"]([\./~@][^'"]+)['"]''', content):
-        raw = m.group(1)
-        if raw.startswith("~") or raw.startswith("@"):
-            rel = raw.lstrip("~").lstrip("@").lstrip("/")
-            resolved = root / rel
-        elif raw.startswith("."):
-            resolved = (filepath.parent / raw).resolve()
-        else:
-            continue
-        for ext in ["", ".ts", ".tsx", ".vue", "/index.ts", "/index.tsx", "/index.vue"]:
-            candidate = Path(str(resolved) + ext)
-            if candidate.exists() and candidate.is_file():
-                try:
-                    imports.append(str(candidate.relative_to(root)))
-                except ValueError:
-                    pass
-                break
-    return imports
 
 
 def extract_python_exports(filepath: Path) -> list[dict]:
@@ -278,10 +180,10 @@ def update_memory_file(
 
     # Extract imports
     if lang == "python":
-        raw_imports = extract_python_imports(src_path, root)
+        raw_imports = _common_extract_python_imports(src_path, root)
         exports = extract_python_exports(src_path)
     else:
-        raw_imports = extract_ts_imports(src_path, root)
+        raw_imports = _common_extract_ts_imports(src_path, root)
         exports = extract_ts_exports(src_path)
 
     depends_on: list[str] = []
@@ -368,6 +270,10 @@ depended_by: {old_depended_by}
 
 {analysis_section}
 """
+
+    # Path traversal check
+    if not str(mem_path.resolve()).startswith(str(memory_dir.resolve())):
+        return f"SKIP (path traversal blocked): {mem_rel}"
 
     mem_path.parent.mkdir(parents=True, exist_ok=True)
     mem_path.write_text(new_content)

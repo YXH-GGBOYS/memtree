@@ -9,30 +9,17 @@ Usage:
     python3 scripts/coordinator-scan.py --config path/to/memtree.config.yaml
 """
 from __future__ import annotations
-import json, re, os, sys
+import json, re, sys
 from pathlib import Path
 from collections import defaultdict
 
-
-def load_config(config_path: Path | None = None) -> dict:
-    """Load memtree.config.yaml, falling back to example if missing."""
-    try:
-        import yaml
-    except ImportError:
-        print("ERROR: PyYAML is required. Install with: pip install pyyaml")
-        sys.exit(1)
-
-    if config_path is None:
-        config_path = Path("memtree.config.yaml")
-    if not config_path.exists():
-        example = config_path.parent / "memtree.config.example.yaml"
-        if example.exists():
-            print(f"WARNING: {config_path} not found. Using {example} as fallback.")
-            config_path = example
-        else:
-            print(f"ERROR: {config_path} not found. Copy memtree.config.example.yaml to memtree.config.yaml first.")
-            sys.exit(1)
-    return yaml.safe_load(config_path.read_text())
+from memtree_common import (
+    load_config,
+    normalize_lang,
+    extract_python_imports as _common_extract_python_imports,
+    extract_ts_imports as _common_extract_ts_imports,
+    LANG_EXTENSIONS,
+)
 
 
 def build_services(config: dict) -> tuple[dict[str, dict], Path, set[str]]:
@@ -54,28 +41,6 @@ def build_services(config: dict) -> tuple[dict[str, dict], Path, set[str]]:
     return services, project_root, exclude
 
 
-def normalize_lang(lang: str) -> str:
-    """Normalize language identifiers to internal categories."""
-    lang = lang.lower()
-    if lang in ("python", "py"):
-        return "python"
-    if lang in ("vue", "nuxt"):
-        return "vue_ts"
-    if lang in ("tsx", "react", "next"):
-        return "tsx"
-    if lang in ("ts", "typescript", "javascript", "js"):
-        return "ts"
-    return lang
-
-
-LANG_EXTENSIONS: dict[str, list[str]] = {
-    "python": [".py"],
-    "vue_ts": [".vue", ".ts", ".tsx"],
-    "tsx": [".ts", ".tsx"],
-    "ts": [".ts", ".tsx"],
-}
-
-
 def list_source_files(root: Path, lang: str, exclude_dirs: set[str]) -> list[Path]:
     """List all source files for a service."""
     exts = LANG_EXTENSIONS.get(lang, [".py"])
@@ -90,87 +55,12 @@ def list_source_files(root: Path, lang: str, exclude_dirs: set[str]) -> list[Pat
     return sorted(files)
 
 
-def extract_python_imports(filepath: Path, root: Path) -> list[str]:
-    """Extract project-internal imports from a Python file."""
-    try:
-        content = filepath.read_text(errors="replace")
-    except Exception:
-        return []
-    imports = []
-    for line in content.split("\n"):
-        line = line.strip()
-        # from app.routers.trading import ...
-        m = re.match(r'from\s+(app\..+?)\s+import', line)
-        if m:
-            mod = m.group(1).replace("app.", "").replace(".", "/")
-            candidate = root / (mod + ".py")
-            if candidate.exists():
-                imports.append(str(candidate.relative_to(root)))
-            else:
-                candidate_dir = root / mod / "__init__.py"
-                if candidate_dir.exists():
-                    imports.append(str(candidate_dir.relative_to(root)))
-            continue
-        # from .services.xxx import ...
-        m = re.match(r'from\s+(\.\S+)\s+import', line)
-        if m:
-            rel_mod = m.group(1)
-            parent = filepath.parent
-            parts = rel_mod.lstrip(".")
-            dots = len(rel_mod) - len(parts)
-            for _ in range(dots - 1):
-                parent = parent.parent
-            mod_path = parts.replace(".", "/")
-            candidate = parent / (mod_path + ".py")
-            if candidate.exists():
-                try:
-                    imports.append(str(candidate.relative_to(root)))
-                except ValueError:
-                    pass
-            continue
-        # import app.xxx
-        m = re.match(r'import\s+(app\..+)', line)
-        if m:
-            mod = m.group(1).split()[0].replace("app.", "").replace(".", "/")
-            candidate = root / (mod + ".py")
-            if candidate.exists():
-                imports.append(str(candidate.relative_to(root)))
-    return imports
-
-
-def extract_ts_imports(filepath: Path, root: Path) -> list[str]:
-    """Extract project-internal imports from TS/Vue files."""
-    try:
-        content = filepath.read_text(errors="replace")
-    except Exception:
-        return []
-    imports = []
-    for m in re.finditer(r'''(?:import|from)\s+.*?['"]([\./~@][^'"]+)['"]''', content):
-        raw = m.group(1)
-        if raw.startswith("~") or raw.startswith("@"):
-            rel = raw.lstrip("~").lstrip("@").lstrip("/")
-            resolved = root / rel
-        elif raw.startswith("."):
-            resolved = (filepath.parent / raw).resolve()
-        else:
-            continue
-        for ext in ["", ".ts", ".tsx", ".vue", "/index.ts", "/index.tsx", "/index.vue"]:
-            candidate = Path(str(resolved) + ext)
-            if candidate.exists() and candidate.is_file():
-                try:
-                    imports.append(str(candidate.relative_to(root)))
-                except ValueError:
-                    pass
-                break
-    return imports
-
-
 def extract_imports(filepath: Path, root: Path, lang: str) -> list[str]:
     """Dispatch to language-specific import extractor."""
     if lang == "python":
-        return extract_python_imports(filepath, root)
+        return _common_extract_python_imports(filepath, root)
     else:
-        return extract_ts_imports(filepath, root)
+        return _common_extract_ts_imports(filepath, root)
 
 
 def build_dependency_graph(service_name: str, cfg: dict, exclude_dirs: set[str]) -> tuple[dict, list[Path]]:
