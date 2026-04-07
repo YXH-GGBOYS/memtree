@@ -9,7 +9,7 @@
 ## Step 1: Install (30 seconds)
 
 ```bash
-git clone https://github.com/YOUR_USER/memtree.git ~/memtree
+git clone https://github.com/YXH-GGBOYS/memtree.git ~/memtree
 
 # Copy skills to Claude Code
 cp -r ~/memtree/skills/memtree_* ~/.claude/skills/
@@ -97,4 +97,4 @@ python3 scripts/validate-memtree.py   # Structure consistency
 ## Next Steps
 - Read [Design Principles](design-principles.md) to understand why MemTree is structured this way
 - Customize your `memtree.config.yaml` pitfalls section — this is the highest-value activity
-- Read [FAQ](faq.md) for common questions
+- Check the GitHub issues for common questions

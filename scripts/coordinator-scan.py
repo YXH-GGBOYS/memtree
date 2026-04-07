@@ -35,7 +35,7 @@ def load_config(config_path: Path | None = None) -> dict:
     return yaml.safe_load(config_path.read_text())
 
 
-def build_services(config: dict) -> dict[str, dict]:
+def build_services(config: dict) -> tuple[dict[str, dict], Path, set[str]]:
     """Build SERVICES dict from config, resolving paths relative to project root."""
     project_root = Path(config.get("project", {}).get("root", ".")).resolve()
     exclude = set(config.get("exclude", [
@@ -195,17 +195,21 @@ def find_entry_points(root: Path, pattern: str, all_files: list[Path]) -> list[s
     return sorted(set(entries))
 
 
-def trace_chain(entry: str, graph: dict, visited: set | None = None) -> list[str]:
-    """Trace all dependencies from an entry point."""
-    if visited is None:
-        visited = set()
-    if entry in visited:
-        return []
-    visited.add(entry)
-    result = [entry]
-    for dep in graph.get(entry, []):
-        result.extend(trace_chain(dep, graph, visited))
-    return result
+def trace_chain(entry: str, graph: dict, max_depth: int = 500) -> list[str]:
+    """Iterative DFS to trace all dependencies from an entry point. Max depth prevents stack overflow."""
+    visited: set[str] = set()
+    stack = [entry]
+    chain: list[str] = []
+    while stack and len(chain) < max_depth:
+        current = stack.pop()
+        if current in visited:
+            continue
+        visited.add(current)
+        chain.append(current)
+        for dep in graph.get(current, []):
+            if dep not in visited:
+                stack.append(dep)
+    return chain
 
 
 def make_chain_prefix(name: str) -> str:

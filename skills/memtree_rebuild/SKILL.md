@@ -46,4 +46,4 @@ Target can be:
 ## Notes
 - This skill writes **directly to .memory/** — no approval needed
 - Changes are committed immediately
-- For CI/team workflows where approval is needed, see /memtree_cowork (future extension)
+- For team workflows with approval requirements, see the MemTree roadmap for upcoming collaboration features

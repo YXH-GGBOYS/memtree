@@ -59,11 +59,14 @@ Your Codebase (913 files)
 ### 1. Install
 
 ```bash
-# Copy skills to Claude Code
+git clone https://github.com/YXH-GGBOYS/memtree.git
+cd memtree
+mkdir -p ~/.claude/skills
 cp -r skills/memtree_* ~/.claude/skills/
 
-# Or just clone and reference
-git clone https://github.com/YXH-GGBOYS/memtree.git
+# Set MEMTREE_HOME so skills can find prompts and scripts
+echo 'export MEMTREE_HOME=~/memtree' >> ~/.zshrc  # or ~/.bashrc
+source ~/.zshrc
 ```
 
 ### 2. Initialize
@@ -91,6 +94,11 @@ MemTree will:
 - Generate `PITFALLS.md` per service from your team's known gotchas
 - Run quality audit (15-file sample verification)
 - Output: `.memory/` directory committed to your repo
+
+### 4. Configure CLAUDE.md (Important!)
+
+Add MemTree rules to your project's `CLAUDE.md` so Claude Code reads `.memory/` in every session.
+See [CLAUDE.md Integration Guide](docs/claude-md-integration.md).
 
 ## What You Get
 
@@ -248,7 +256,7 @@ memtree/
 
 ## Contributing
 
-See [CONTRIBUTING.md](.github/CONTRIBUTING.md). We especially welcome:
+We welcome contributions! Open an issue or PR. We especially welcome:
 - Prompt improvements (better Worker analysis, fewer hallucinations)
 - Language/framework support (Go, Rust, Java, Angular, etc.)
 - Quality audit enhancements

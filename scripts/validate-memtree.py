@@ -140,7 +140,7 @@ def main() -> None:
     report_file = memory_dir / ".validation-report"
     report_file.write_text(report + "\n")
 
-    sys.exit(len(errors))
+    sys.exit(min(len(errors), 1))
 
 
 if __name__ == "__main__":

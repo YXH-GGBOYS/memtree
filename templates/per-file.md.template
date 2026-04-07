@@ -1,4 +1,3 @@
-```yaml
 ---
 source: {actual_filesystem_path}
 service: {service_name}
@@ -8,7 +7,6 @@ source_hash: {SHA256_first_8_chars}
 depends_on: [{comma_separated_dependency_list}]
 depended_by: [{comma_separated_caller_list}]
 ---
-```
 
 # {service}/{relative_path}
 

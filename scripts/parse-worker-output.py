@@ -66,6 +66,13 @@ def parse_workers(workers_dir: Path, memory_dir: Path) -> tuple[int, int]:
 
             # Write to .memory/{path}.md
             out_path = memory_dir / f"{file_path}.md"
+
+            # Path traversal check
+            resolved = out_path.resolve()
+            if not str(resolved).startswith(str(memory_dir.resolve())):
+                print(f"  SKIP (path traversal blocked): {file_path}")
+                continue
+
             out_path.parent.mkdir(parents=True, exist_ok=True)
 
             try:
@@ -95,6 +102,12 @@ def parse_workers(workers_dir: Path, memory_dir: Path) -> tuple[int, int]:
                 out_path = memory_dir / "db" / db_name / schema / f"{table}.md"
             else:
                 out_path = memory_dir / "db" / f"{table_path.replace('.', '/')}.md"
+
+            # Path traversal check
+            resolved = out_path.resolve()
+            if not str(resolved).startswith(str(memory_dir.resolve())):
+                print(f"  SKIP (path traversal blocked): {table_path}")
+                continue
 
             out_path.parent.mkdir(parents=True, exist_ok=True)
             try:

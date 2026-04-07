@@ -356,10 +356,11 @@ def main() -> None:
         lang = normalize_lang(svc.get("lang", "python"))
         service_roots[name] = (svc_path, lang)
 
-    # Load chains.json for reverse deps (if available)
+    # Load chains.json (if available)
     chains_path = memory_dir / "chains.json"
+    chains_data: list[dict] = []
     if chains_path.exists():
-        json.loads(chains_path.read_text())
+        chains_data = json.loads(chains_path.read_text())
 
     # First pass: build import graph for reverse deps
     reverse_deps: dict[str, set[str]] = defaultdict(set)

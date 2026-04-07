@@ -85,5 +85,5 @@ This will take ~30 min for a ~500 file project (scales linearly).
 
 ## Important
 - Don't generate .memory/ files in this step — that's /memtree_bootstrap's job
-- Don't read file contents during auto-scan — only look at file names and directory structure
+- Don't read source code file contents during auto-scan — only scan file names, directory structure, and config files (package.json, pyproject.toml, docker-compose.yml, .env file names)
 - The pitfalls section is optional but tell the user: "This is the most valuable part. AI agents will read this BEFORE writing any code in your project."

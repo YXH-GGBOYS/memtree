@@ -22,11 +22,26 @@ if [ ! -f "$TRIGGER" ]; then
     exit 0
 fi
 
-# Extract file_path from stdin JSON
-FILE_PATH=$(python3 -c "
+# Extract tool_name and file_path from stdin JSON
+read -r HOOK_INPUT
+TOOL_NAME=$(echo "$HOOK_INPUT" | python3 -c "
 import sys, json
 try:
-    data = json.load(sys.stdin)
+    data = json.loads(sys.stdin.read())
+    print(data.get('tool_name', ''))
+except Exception:
+    print('')
+" 2>/dev/null)
+
+# Only trigger for write operations
+if [[ "$TOOL_NAME" != "Write" && "$TOOL_NAME" != "Edit" ]]; then
+    exit 0
+fi
+
+FILE_PATH=$(echo "$HOOK_INPUT" | python3 -c "
+import sys, json
+try:
+    data = json.loads(sys.stdin.read())
     # PostToolUse hook stdin: {tool_name, tool_input, tool_output, ...}
     inp = data.get('tool_input', data)
     if isinstance(inp, str):

@@ -49,6 +49,9 @@ For each table in the configured schemas:
    WHERE tc.table_schema='{schema}' AND tc.table_name='{table}' AND tc.constraint_type='FOREIGN KEY'
    ```
 
+**Note**: Schema and table names come from memtree.config.yaml (trusted input).
+If you encounter names with special characters, use PostgreSQL identifier quoting: "schema"."table"
+
 ### Phase 3: ORM Mapping Verification
 For each table:
 1. Grep the codebase for the corresponding ORM model class

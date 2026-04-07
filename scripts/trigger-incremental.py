@@ -21,9 +21,16 @@ try:
 except ImportError:
     HAS_FCNTL = False
 
-# .memory/ root directory (relative to this script)
-SCRIPT_DIR = Path(__file__).resolve().parent
-MEMORY_DIR = SCRIPT_DIR.parent
+def find_project_root() -> Path:
+    """Find project root by looking for memtree.config.yaml or .memory/"""
+    cwd = Path.cwd()
+    for parent in [cwd] + list(cwd.parents):
+        if (parent / "memtree.config.yaml").exists() or (parent / ".memory").exists():
+            return parent
+    return cwd
+
+PROJECT_ROOT = find_project_root()
+MEMORY_DIR = PROJECT_ROOT / ".memory"
 PENDING = MEMORY_DIR / ".pending-update"
 LOCK_FILE = MEMORY_DIR / ".lock"
 
