@@ -63,7 +63,7 @@ Your Codebase (913 files)
 cp -r skills/memtree_* ~/.claude/skills/
 
 # Or just clone and reference
-git clone https://github.com/user/memtree.git
+git clone https://github.com/YXH-GGBOYS/memtree.git
 ```
 
 ### 2. Initialize

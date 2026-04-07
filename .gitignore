@@ -1,0 +1,10 @@
+.DS_Store
+.env
+*.pem
+*.key
+node_modules/
+__pycache__/
+.memory/
+*.pyc
+.venv/
+venv/
