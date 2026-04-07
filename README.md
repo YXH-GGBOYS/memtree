@@ -1,6 +1,16 @@
+<div align="center">
+
 # MemTree
 
 **Build structured code memory so AI agents stop making the same mistakes twice.**
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Claude Code](https://img.shields.io/badge/Built%20for-Claude%20Code-blueviolet)](https://claude.ai/code)
+[![Python 3.9+](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://python.org)
+
+[English](README.md) | [中文](README_CN.md)
+
+</div>
 
 MemTree scans your entire codebase and generates a `.memory/` directory — a persistent, file-level knowledge graph that AI coding agents can read before touching your code. Every file gets a TL;DR, dependency map, known pitfalls, and constraint documentation. When code changes, MemTree updates automatically.
 
