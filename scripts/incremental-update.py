@@ -10,7 +10,7 @@ Usage:
     python3 scripts/incremental-update.py --config path/to/cfg   # Custom config path
 """
 from __future__ import annotations
-import ast, json, re, sys
+import ast, re, sys
 from pathlib import Path
 from datetime import datetime, timezone
 

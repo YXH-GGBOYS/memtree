@@ -166,7 +166,7 @@ cross-refs/
 
 **自动（推荐）：** 安装 git hook
 ```bash
-cp scripts/pre-commit-memtree.py .git/hooks/pre-commit
+cp ~/memtree/scripts/pre-commit-memtree.py .git/hooks/pre-commit
 chmod +x .git/hooks/pre-commit
 ```
 每次 commit 自动检测 `.memory/` 中过期的文件。

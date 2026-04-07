@@ -10,8 +10,11 @@
 
 ```bash
 git clone https://github.com/YXH-GGBOYS/memtree.git ~/memtree
+cd ~/memtree
+pip install -r requirements.txt       # PyYAML
 
 # 将 skills 复制到 Claude Code
+mkdir -p ~/.claude/skills
 cp -r ~/memtree/skills/memtree_* ~/.claude/skills/
 ```
 
@@ -72,7 +75,7 @@ AI 读取:
 
 **自动（推荐）：** 安装 git hook
 ```bash
-cp scripts/pre-commit-memtree.py .git/hooks/pre-commit
+cp ~/memtree/scripts/pre-commit-memtree.py .git/hooks/pre-commit
 chmod +x .git/hooks/pre-commit
 ```
 每次 commit 会自动检测 `.memory/` 中过期的文件。

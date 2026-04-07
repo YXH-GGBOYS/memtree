@@ -54,8 +54,11 @@ def load_path_maps() -> tuple[dict[str, str], dict[str, str]]:
     return path_map, abs_path_map
 
 
-def source_to_memory(src: str, path_map: dict[str, str], abs_path_map: dict[str, str]) -> str | None:
-    """Deterministic path mapping: source file -> .memory/ relative path."""
+def resolve_source_to_memory(src: str, path_map: dict[str, str], abs_path_map: dict[str, str]) -> str | None:
+    """Deterministic path mapping: source file -> .memory/ relative path.
+    Unlike memtree_common.source_to_memory(), this version handles both
+    absolute and relative paths and returns only the mem_path (no service name).
+    """
     # Try absolute path first
     for prefix, mem_prefix in abs_path_map.items():
         if src.startswith(prefix):
@@ -90,7 +93,7 @@ def main() -> None:
     if not path_map and not abs_path_map:
         return
 
-    mem_path = source_to_memory(src_path, path_map, abs_path_map)
+    mem_path = resolve_source_to_memory(src_path, path_map, abs_path_map)
     if not mem_path:
         return
 
