@@ -54,6 +54,7 @@ def build_service_roots(config: dict, project_root: Path) -> dict[str, tuple[Pat
     return roots
 
 
+# Computed once per run: all files in a batch share the same timestamp (intentional)
 NOW = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 

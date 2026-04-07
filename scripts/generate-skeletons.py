@@ -9,7 +9,7 @@ Usage:
     python3 scripts/generate-skeletons.py --config path/to/memtree.config.yaml
 """
 from __future__ import annotations
-import ast, json, re, sys
+import ast, bisect, json, re, sys
 from pathlib import Path
 from datetime import datetime, timezone
 from collections import defaultdict
@@ -35,6 +35,7 @@ def _build_path_map_with_context(config: dict) -> tuple[dict[str, tuple[str, str
     return path_map, project_root, memory_dir, exclude
 
 
+# Computed once per run: all files in a batch share the same timestamp (intentional)
 NOW = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
@@ -132,18 +133,24 @@ def extract_ts_info(filepath: Path, root: Path) -> dict:
                     pass
                 break
 
+    # Build line-offset index to avoid O(N*L) per-match line counting
+    line_offsets = [0] + [i + 1 for i, c in enumerate(content) if c == '\n']
+
+    def offset_to_line(offset: int) -> int:
+        return bisect.bisect_right(line_offsets, offset)
+
     # Extract exported functions/consts
     for m in re.finditer(r'export\s+(?:default\s+)?(?:async\s+)?function\s+(\w+)', content):
-        functions.append({"name": m.group(1), "signature": m.group(0), "line": content[:m.start()].count("\n") + 1})
+        functions.append({"name": m.group(1), "signature": m.group(0), "line": offset_to_line(m.start())})
     for m in re.finditer(r'export\s+(?:const|let|var)\s+(\w+)', content):
-        functions.append({"name": m.group(1), "signature": m.group(0), "line": content[:m.start()].count("\n") + 1})
+        functions.append({"name": m.group(1), "signature": m.group(0), "line": offset_to_line(m.start())})
     # Vue composables
     for m in re.finditer(r'(?:export\s+)?(?:const|function)\s+(use\w+)', content):
         if not any(f["name"] == m.group(1) for f in functions):
-            functions.append({"name": m.group(1), "signature": f"composable {m.group(1)}", "line": content[:m.start()].count("\n") + 1})
+            functions.append({"name": m.group(1), "signature": f"composable {m.group(1)}", "line": offset_to_line(m.start())})
     # defineProps for Vue
     for m in re.finditer(r'(?:const\s+\w+\s*=\s*)?defineProps<([^>]+)>', content):
-        functions.append({"name": "defineProps", "signature": f"defineProps<{m.group(1)[:60]}>", "line": content[:m.start()].count("\n") + 1})
+        functions.append({"name": "defineProps", "signature": f"defineProps<{m.group(1)[:60]}>", "line": offset_to_line(m.start())})
 
     return {"functions": functions, "imports": imports}
 
@@ -333,6 +340,10 @@ def main() -> None:
                 continue
             mem_rel, svc = result
             mem_path = memory_dir / mem_rel
+
+            if not str(mem_path.resolve()).startswith(str(memory_dir.resolve())):
+                print(f"  SKIP (path traversal blocked): {mem_rel}")
+                continue
 
             try:
                 content = generate_memory_file(

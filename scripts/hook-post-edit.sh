@@ -22,8 +22,8 @@ if [ ! -f "$TRIGGER" ]; then
     exit 0
 fi
 
-# Extract tool_name and file_path from stdin JSON
-read -r HOOK_INPUT
+# Extract tool_name and file_path from stdin JSON (cat handles multi-line input)
+HOOK_INPUT=$(cat)
 TOOL_NAME=$(echo "$HOOK_INPUT" | python3 -c "
 import sys, json
 try:
@@ -52,5 +52,5 @@ except Exception:
 " 2>/dev/null)
 
 if [ -n "$FILE_PATH" ]; then
-    python3 "$TRIGGER" "$FILE_PATH" &
+    python3 "$TRIGGER" "$FILE_PATH" >> "${SCRIPT_DIR}/../.memory/.hook-log" 2>&1 &
 fi

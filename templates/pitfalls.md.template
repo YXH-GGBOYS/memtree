@@ -23,3 +23,4 @@
 - Project pitfalls config: memtree.config.yaml
 - DB column mismatches: cross-refs/orm-db-mismatch.md
 - Cross-service gotchas: cross-refs/field-confusion.md
+- Service INDEX: {service}/INDEX.md

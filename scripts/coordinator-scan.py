@@ -86,7 +86,8 @@ def find_entry_points(root: Path, pattern: str, all_files: list[Path]) -> list[s
 
 
 def trace_chain(entry: str, graph: dict, max_depth: int = 500) -> list[str]:
-    """Iterative DFS to trace all dependencies from an entry point. Max depth prevents stack overflow."""
+    # Cap chain size for performance; cycles are handled by the visited set
+    """Iterative DFS to trace all dependencies from an entry point."""
     visited: set[str] = set()
     stack = [entry]
     chain: list[str] = []

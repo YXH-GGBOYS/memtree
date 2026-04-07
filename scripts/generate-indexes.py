@@ -139,6 +139,7 @@ def main() -> None:
         subdirs: list[tuple[str, str, int]] = []
         for sub in sorted(service_dir.iterdir()):
             if sub.is_dir():
+                # rglob to count nested .md files (subdirs may have multiple levels)
                 md_count = sum(1 for f in sub.rglob("*.md") if f.name not in SKIP_FILES)
                 if md_count > 0:
                     sub_desc = DIR_DESCRIPTIONS.get(sub.name, sub.name)
@@ -155,7 +156,12 @@ def main() -> None:
             svc_index += f"| (root) | Config/entrypoints | {len(root_mds)} |\n"
         svc_index += f"\n## Pitfalls\n-> [PITFALLS.md](./PITFALLS.md)\n"
 
-        (service_dir / "INDEX.md").write_text(svc_index)
+        svc_index_path = service_dir / "INDEX.md"
+        if not str(svc_index_path.resolve()).startswith(str(memory_dir.resolve())):
+            continue
+        if svc_index_path.exists() and svc_index_path.read_text() == svc_index:
+            continue  # Skip unchanged INDEX.md
+        svc_index_path.write_text(svc_index)
         total_indexes += 1
 
         # Sub-directory INDEX.md files
@@ -182,12 +188,18 @@ def main() -> None:
             # Sub-subdirectories
             sub_subs = [d for d in sub.iterdir() if d.is_dir()]
             for ss in sorted(sub_subs):
+                # rglob to count nested .md files in sub-subdirectories
                 ss_count = sum(1 for f in ss.rglob("*.md") if f.name not in SKIP_FILES)
                 if ss_count > 0:
                     ss_desc = DIR_DESCRIPTIONS.get(ss.name, ss.name)
                     idx += f"| [{ss.name}/](./{ss.name}/INDEX.md) | {ss_desc} | {ss_count} files |\n"
 
-            (sub / "INDEX.md").write_text(idx)
+            sub_index_path = sub / "INDEX.md"
+            if not str(sub_index_path.resolve()).startswith(str(memory_dir.resolve())):
+                continue
+            if sub_index_path.exists() and sub_index_path.read_text() == idx:
+                continue  # Skip unchanged INDEX.md
+            sub_index_path.write_text(idx)
             total_indexes += 1
 
     print(f"Generated {total_indexes} INDEX.md files")

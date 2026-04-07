@@ -6,6 +6,9 @@ Checks performed:
   2. depends_on targets exist in .memory/ (detects broken links)
   3. Orphaned .memory/ files (source deleted but .memory/ entry remains)
 
+Side effects:
+  - Writes a validation report to .memory/.validation-report
+
 Used in bootstrap Phase 5, or run manually any time.
 
 Usage:
@@ -121,6 +124,7 @@ def main() -> None:
     # Write report file
     report_file = memory_dir / ".validation-report"
     report_file.write_text(report + "\n")
+    print(f"Report written to: {report_file}")
 
     sys.exit(min(len(errors), 1))
 

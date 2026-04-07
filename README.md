@@ -156,6 +156,8 @@ cross-refs/
 | 3 | **Update** — code changes, memory follows | Git hooks detect changes → auto-update affected `.memory/` files. |
 | 4 | **Pitfalls first** — read traps before coding | `PITFALLS.md` is mandatory reading. AI must read it before writing any code. |
 | 5 | **Verify** — trust but check | Quality audit samples 15 files and verifies against source code. |
+| 6 | **Layered reading** — TL;DR -> Quick Ref -> Full | 80% answered by TL;DR + Quick Ref. AI can stop at any layer. |
+| 7 | **Shared files first** — hot files analyzed once | Files imported by 3+ chains analyzed by dedicated Worker. ~35% token savings. |
 
 ## Keeping It Fresh
 

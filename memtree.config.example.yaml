@@ -5,7 +5,7 @@
 project:
   name: "My Project"
   description: "Brief description of your project"
-  root: "."  # Project root (where .memory/ will be created)
+  root: "."  # Relative to CWD when scripts run. Always run scripts from your project root.
 
 # Define your services/modules
 # Each service is a logical grouping of code (e.g., backend, frontend, API gateway)

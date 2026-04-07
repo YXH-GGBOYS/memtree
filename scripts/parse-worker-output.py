@@ -12,6 +12,17 @@ Arguments:
                  Defaults to .memory/workers/
 """
 from __future__ import annotations
+
+# PROTOCOL: Worker agents output files delimited by:
+#   ---BEGIN FILE: {service}/{path}---
+#   (content)
+#   ---END FILE---
+# And DB tables delimited by:
+#   ---BEGIN DB TABLE: {schema}.{table}---
+#   (content)
+#   ---END DB TABLE---
+# These delimiters are defined in prompts/build/worker-analyze.md and worker-db-schema.md
+
 import json, sys, re
 from pathlib import Path
 
