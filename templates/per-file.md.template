@@ -1,0 +1,54 @@
+```yaml
+---
+source: {actual_filesystem_path}
+service: {service_name}
+layer: {router|service|model|page|component|composable|handler|util}
+last_analyzed: {ISO_8601_timestamp}
+source_hash: {SHA256_first_8_chars}
+depends_on: [{comma_separated_dependency_list}]
+depended_by: [{comma_separated_caller_list}]
+---
+```
+
+# {service}/{relative_path}
+
+## TL;DR
+{role_in_1_phrase} | calls {key_dependencies} | {most_important_constraint}
+
+## Quick Ref
+| Export | Signature | Constraint |
+|--------|-----------|------------|
+| {function_or_class} | {params_arrow_return} | {transaction_mode_or_currency_or_enum} |
+
+> AI agent: 80% of the time, reading up to here is enough. Full Analysis below for deep dives.
+
+## Full Analysis
+
+### Node Position
+- **Service**: {service_name}
+- **Layer**: {layer}
+- **Ancestry**: project -> {service} -> {module} -> {directory} -> **{this_file}**
+
+### Relationships
+
+#### Siblings
+| File | Role | Relation to this file |
+|------|------|-----------------------|
+
+#### Children (this file calls)
+| Target:function | Signature | Return |
+|----------------|-----------|--------|
+
+#### Callers (who calls this file)
+| Source | How | Context |
+|--------|-----|---------|
+
+#### Collaboration Pattern
+{how_files_work_together_for_business_function}
+
+### Key Constraints
+- {constraint_1}
+- {constraint_2}
+
+### Modification Risk
+{what_breaks_if_you_change_this_file}

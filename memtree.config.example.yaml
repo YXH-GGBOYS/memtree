@@ -1,0 +1,90 @@
+# MemTree Configuration
+# Copy this to memtree.config.yaml and fill in your project details.
+# Or run /memtree_init to generate it interactively.
+
+project:
+  name: "My Project"
+  description: "Brief description of your project"
+  root: "."  # Project root (where .memory/ will be created)
+
+# Define your services/modules
+# Each service is a logical grouping of code (e.g., backend, frontend, API gateway)
+services:
+  - name: backend            # Short name (used in .memory/ paths)
+    path: src/api/           # Relative path from project root
+    lang: python             # python | typescript | javascript | vue | react | go | rust | java
+    framework: fastapi       # Optional: fastapi | django | express | nuxt | next | etc.
+    entry_pattern: "routes/*.py"  # Glob pattern for entry point files (routers, pages, etc.)
+
+  - name: frontend
+    path: src/web/
+    lang: vue
+    framework: nuxt
+    entry_pattern: "pages/**/*.vue"
+
+  # Add more services as needed:
+  # - name: admin
+  #   path: admin/src/
+  #   lang: typescript
+  #   framework: react
+  #   entry_pattern: "pages/**/*.tsx"
+  #
+  # - name: extension
+  #   path: browser-ext/src/
+  #   lang: typescript
+  #   entry_pattern: "background.ts"
+
+# Database configuration (optional but recommended)
+# MemTree will analyze table schemas and map ORM fields to DB columns
+database:
+  type: postgresql           # postgresql | mysql | sqlite | mongodb
+  access: "docker exec mydb psql -U user -d mydb"  # Shell command to run SQL queries
+  # For SSH-tunneled access:
+  # access: "ssh -p 22 user@host 'docker exec db psql -U user -d mydb'"
+  schemas:                   # Which schemas to analyze (PostgreSQL specific)
+    - public
+    # - auth
+    # - trading
+
+# Path mapping: source file path prefix → .memory/ path prefix
+# MemTree generates this automatically from services, but you can override
+# path_map:
+#   "src/api/": "backend/"
+#   "src/web/": "frontend/"
+
+# Files/directories to exclude from analysis
+exclude:
+  - node_modules
+  - __pycache__
+  - .git
+  - dist
+  - build
+  - "*.test.*"
+  - "*.spec.*"
+  - migrations
+  - .nuxt
+  - .next
+
+# Team knowledge: known pitfalls/gotchas (optional but HIGHLY recommended)
+# These become PITFALLS.md entries — the most valuable part of MemTree
+# Format: free text, MemTree will parse and categorize
+pitfalls:
+  # - "wallet balance is stored in cents (integer), but listing price is in dollars (decimal)"
+  # - "order_events DB column name is event_metadata, but the ORM attribute is event_data"
+  # - "services use flush-only pattern — the caller is responsible for session.commit()"
+  # - "user_profiles real data is in user.profiles table, public.user_profiles is empty"
+
+# Quality audit settings
+quality:
+  sample_count: 15           # Number of files to sample for quality audit
+  pass_threshold: 10         # Minimum PASS count to consider V1 successful
+  # You can specify exact files to audit (otherwise MemTree picks automatically):
+  # sample_files:
+  #   - backend/routes/trading.py
+  #   - frontend/pages/index.vue
+
+# Advanced settings
+advanced:
+  shared_threshold: 3        # Files imported by >= N chains are "hot files" (analyzed first)
+  batch_size: 5              # Max parallel Workers during bootstrap
+  batch_interval: 10         # Seconds to wait between batches

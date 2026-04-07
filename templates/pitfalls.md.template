@@ -1,0 +1,25 @@
+# {service_name} — Known Pitfalls
+
+> AI agents: **Read this entire file BEFORE writing any code** in this service.
+> Last updated: {timestamp}
+
+## 🔴 Critical (will cause data corruption or 500 errors)
+
+### P001: {title}
+- **Trap**: {what goes wrong}
+- **Affected files**: {list of files}
+- **Correct approach**: {how to do it right}
+- **Source**: {team knowledge / production incident / code review}
+
+## 🟡 Warning (will cause logic bugs)
+
+### P010: {title}
+- **Trap**: {what goes wrong}
+- **Affected files**: {list of files}
+- **Correct approach**: {how to do it right}
+- **Source**: {where this knowledge came from}
+
+## References
+- Project pitfalls config: memtree.config.yaml
+- DB column mismatches: cross-refs/orm-db-mismatch.md
+- Cross-service gotchas: cross-refs/field-confusion.md
