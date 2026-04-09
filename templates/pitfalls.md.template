@@ -2,25 +2,47 @@
 
 > AI agents: **Read this entire file BEFORE writing any code** in this service.
 > Last updated: {timestamp}
+> PITFALL lifecycle: ACTIVE → RESOLVED. Types: architecture | bug-derived | config
 
 ## 🔴 Critical (will cause data corruption or 500 errors)
 
 ### P001: {title}
+- **Status**: ACTIVE | **Type**: architecture
+- **Source**: [EVT-YYYYMMDD-NNN](../events/YYYY-MM/EVT-YYYYMMDD-NNN-slug.md) | **last_seen**: YYYY-MM-DD
+- **Verify**: `grep "pattern" path/to/file` — expected result
 - **Trap**: {what goes wrong}
 - **Affected files**: {list of files}
 - **Correct approach**: {how to do it right}
-- **Source**: {team knowledge / production incident / code review}
 
 ## 🟡 Warning (will cause logic bugs)
 
 ### P010: {title}
+- **Status**: ACTIVE | **Type**: bug-derived
+- **Source**: [EVT-YYYYMMDD-NNN](...) | **last_seen**: YYYY-MM-DD
+- **Verify**: `grep "pattern" path/to/file` — expected result
 - **Trap**: {what goes wrong}
 - **Affected files**: {list of files}
 - **Correct approach**: {how to do it right}
-- **Source**: {where this knowledge came from}
+
+## 🟢 Resolved
+
+### ~~P020: {title}~~
+- **Status**: RESOLVED (YYYY-MM-DD) | **Type**: config
+- **Source**: pre-event | **resolved_by**: [EVT-YYYYMMDD-NNN](...)
+- **Verify**: `grep "pattern" path/to/file` — confirm fix still in place
+- **Trap**: {what was wrong}
+- **Note**: {why it's no longer a risk}
+
+## Lifecycle
+
+- **architecture**: Inherent to system design. Won't change unless major refactor. Doesn't expire.
+- **bug-derived**: Learned from a specific bug. If not validated by an event in 30 days → ⚠️ STALE in HEALTH.md.
+- **config**: Related to deployment/configuration. Same 30-day staleness rule.
+- Run `python3 .memory/scripts/generate-health.py` to see which PITFALLs are stale.
 
 ## References
 - Project pitfalls config: memtree.config.yaml
 - DB column mismatches: cross-refs/orm-db-mismatch.md
 - Cross-service gotchas: cross-refs/field-confusion.md
 - Service INDEX: {service}/INDEX.md
+- Events: events/INDEX.md

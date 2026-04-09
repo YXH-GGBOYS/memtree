@@ -37,10 +37,15 @@ Your Codebase (913 files)
         ↓
   .memory/               ← Persistent code memory (lives in your repo)
   ├── ROOT.md            ← "Start here" — service map + navigation
+  ├── HEALTH.md          ← Auto-generated system health snapshot
+  ├── events/            ← Event Layer — structured change history
+  │   ├── INDEX.md       ← Searchable event index
+  │   ├── TEMPLATE.md    ← Event file template
+  │   └── 2026-04/       ← Events by month
   ├── cross-refs/        ← Cross-service field mappings + gotchas
   ├── backend/
   │   ├── INDEX.md       ← Directory overview
-  │   ├── PITFALLS.md    ← Known pitfalls for this service (🔴 critical / 🟡 warning)
+  │   ├── PITFALLS.md    ← Known pitfalls with lifecycle (ACTIVE/RESOLVED)
   │   └── routes/
   │       └── trading.py.md  ← TL;DR + Quick Ref + Full dependency graph
   ├── frontend/
@@ -50,9 +55,12 @@ Your Codebase (913 files)
 ```
 
 **AI agent workflow with MemTree:**
-1. Read `PITFALLS.md` — know the traps **before** writing code
-2. Read `ROOT.md` → `INDEX.md` → `per-file.md` — 3 hops to full context
-3. After fixing, MemTree auto-updates via git hooks
+1. Read `HEALTH.md` — 10-second overview of hotspots, change coupling, stale pitfalls
+2. Read `PITFALLS.md` — know the traps **before** writing code
+3. Read `ROOT.md` → `INDEX.md` → `per-file.md` — 3 hops to full context
+4. Search `events/INDEX.md` — find similar past bugs and their root causes
+5. After fixing, MemTree auto-updates via git hooks
+6. Write an event if the fix has diagnostic value
 
 ## Quick Start (5 minutes)
 
@@ -147,6 +155,79 @@ cross-refs/
 └── service-schema-matrix.md ← Which service reads/writes which DB schema
 ```
 
+## Event Layer
+
+Track **why** code changes happen, not just what changed. Events bridge the gap between git history (the diff) and institutional knowledge (the context).
+
+```bash
+# Create events directory
+mkdir -p .memory/events/2026-04
+cp templates/event.md.template .memory/events/TEMPLATE.md
+```
+
+**When to write an event:**
+- Fixed a bug with diagnostic value (root cause analysis worth preserving)
+- Shipped a new feature
+- Deployment incident
+- Architecture decision
+
+**Event format** (`EVT-YYYYMMDD-NNN-slug.md`):
+```yaml
+---
+id: EVT-20260408-001
+date: 2026-04-08
+type: bugfix                    # bugfix | feature | refactor | deploy | incident
+severity: high
+services: [backend, frontend]
+pitfalls_created: [backend/P012]
+pitfalls_validated: [backend/P003]
+outcome: deployed
+---
+## Symptoms ...
+## Root Cause ...
+## Fix ...
+## Lessons ...
+```
+
+**How to use events:**
+- Before fixing a bug → search `events/INDEX.md` for similar past issues
+- When writing PITFALLs → link to the event that discovered them
+- In `HEALTH.md` → aggregate event statistics
+
+## HEALTH.md — System Health Snapshot
+
+Auto-generated overview of your codebase's current state:
+
+```bash
+python3 .memory/scripts/generate-health.py
+```
+
+**Output includes:**
+- **Change Hotspots**: files changed most in the last 14 days
+- **Change Coupling**: files that frequently change together across services
+- **PITFALL Stats**: active/resolved counts by type, stale warnings
+- **Event Stats**: recent bugfix/feature/incident counts
+
+Read `HEALTH.md` at the start of every session to get a 10-second overview.
+
+## PITFALL Lifecycle
+
+PITFALLs now have status, type, and temporal awareness:
+
+```
+ACTIVE (discovered) → validated by events → RESOLVED (fixed)
+                    → 30 days no validation → ⚠️ STALE (HEALTH.md warns)
+```
+
+**Types:**
+| Type | Meaning | Expires? |
+|------|---------|----------|
+| `architecture` | Inherent to system design | No (unless major refactor) |
+| `bug-derived` | Learned from a specific bug | 30 days without validation → STALE |
+| `config` | Related to deployment/config | Same as bug-derived |
+
+See `templates/pitfalls.md.template` for the full format.
+
 ## Design Principles
 
 | # | Principle | Implementation |
@@ -233,7 +314,15 @@ memtree/
 │   ├── quality/             # Audit + validation prompts
 │   └── update/              # Incremental update prompts
 ├── scripts/                 # Python/Bash automation
+│   ├── generate-health.py   # HEALTH.md generator
+│   ├── quality-eval.py      # Quality evaluator (deterministic + model-based)
+│   ├── validate-memtree.py  # Hash consistency checker
+│   ├── incremental-update.py # Process pending updates
+│   └── ...                  # Hooks, skeleton generation, etc.
 ├── templates/               # Output format templates
+│   ├── event.md.template    # Event file format
+│   ├── pitfalls.md.template # PITFALL format (with lifecycle)
+│   └── per-file.md.template # Per-file analysis format
 ├── docs/                    # Detailed documentation
 └── examples/                # Sample output from a real project
 ```
@@ -256,9 +345,8 @@ memtree/
 
 - [x] **v1.0** — Core: bootstrap + quality audit + manual rebuild
 - [x] **v1.1** — Auto-update: git hooks + incremental refresh
-- [ ] **v2.0** — Multi-agent collaboration: draft/review/approve workflow
-- [ ] **v2.1** — AI-driven bug report → auto-fix pipeline
-- [ ] **v3.0** — Cross-platform: Cursor, Aider, Copilot support
+- [x] **v1.2** — Event Layer + HEALTH.md + PITFALL lifecycle + quality eval
+- [ ] **v2.0** — Cross-platform: Cursor, Aider, Copilot support
 
 ## Contributing
 

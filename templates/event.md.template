@@ -1,0 +1,31 @@
+---
+id: EVT-YYYYMMDD-NNN
+date: YYYY-MM-DD
+type:                           # bugfix | feature | refactor | deploy | incident
+severity:                       # critical | high | medium | low (optional for features)
+services: []                    # service names from your config
+files_changed: []               # MemTree paths: service/path/to/file.ext
+pitfalls_created: []            # format: service/Pxxx
+pitfalls_resolved: []           # PITFALLs fixed by this event
+pitfalls_validated: []          # PITFALLs re-confirmed as still relevant
+commits: []                     # git commit hashes
+outcome:                        # deployed | reverted | partial | pending
+---
+
+## Symptoms
+<!-- User-visible behavior -->
+
+## Root Cause
+<!-- Required for bugfix/incident: technical root cause -->
+
+## Fix
+<!-- What was done -->
+
+## Rejected Approaches
+<!-- Optional: approaches tried and abandoned -->
+
+## Lessons
+<!-- Optional: PITFALL linkage -->
+<!-- [NEW service/Pxxx] description -->
+<!-- [VALIDATED service/Pxxx] description -->
+<!-- [RESOLVED service/Pxxx] description -->
