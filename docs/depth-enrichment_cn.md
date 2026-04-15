@@ -15,7 +15,7 @@
 
 ```markdown
 ## TL;DR
-Order router | calls escrow_service | flush-only
+Checkout router | calls payment_service | flush-only
 
 ## Quick Ref
 (空或从函数名自动生成)
@@ -25,14 +25,14 @@ Order router | calls escrow_service | flush-only
 
 ```markdown
 ## TL;DR
-Order router | calls escrow_service + order_events | price=dollars not cents, flush-only
+Checkout router | calls payment_service + audit_log | price=major units not minor, flush-only
 
 ## Quick Ref
 | Export | Signature | Constraint |
 |--------|-----------|------------|
-| create_order | (session, listing_id, buyer_id) → Order | flush-only, locks listing FOR UPDATE |
-| cancel_order | (session, order_id, reason) → None | must set cancelled_at + write OrderEvent |
-| pay_order | (session, order_id) → Order | deducts wallet (cents), creates escrow hold |
+| create_subscription | (session, plan_id, account_id) → Subscription | flush-only, locks plan FOR UPDATE |
+| cancel_subscription | (session, subscription_id, reason) → None | must set cancelled_at + write AuditLog |
+| process_payment | (session, subscription_id) → Subscription | deducts credits (minor units), creates payment hold |
 
 ## Full Analysis
 ### Children (this file calls)
@@ -45,7 +45,7 @@ Order router | calls escrow_service + order_events | price=dollars not cents, fl
 ### 方式 1：重建单个文件
 
 ```bash
-/memtree_rebuild routes/trading.py
+/memtree_rebuild routes/checkout.py
 ```
 
 MemTree 会：
@@ -65,7 +65,7 @@ MemTree 会：
 ### 方式 3：重建数据库表
 
 ```bash
-/memtree_rebuild db/trading.orders
+/memtree_rebuild db/billing.subscriptions
 ```
 
 查询数据库获取列定义、约束、外键，并与 ORM 模型交叉对照。
@@ -77,8 +77,8 @@ MemTree 会：
 1. 查看质量审计报告 — 哪些文件 PASS/FAIL？
 2. 优先重建 FAIL 的文件：
    ```
-   /memtree_rebuild routes/trading.py
-   /memtree_rebuild services/escrow_service.py
+   /memtree_rebuild routes/checkout.py
+   /memtree_rebuild services/payment_service.py
    ```
 
 ### 按 Bug 频率优先
@@ -99,14 +99,14 @@ git log --since="3 months ago" --name-only --pretty=format: | sort | uniq -c | s
 
 ### 按服务重要性优先
 
-以交易平台为例：
-1. **最先**：支付/钱包/账本服务（涉及资金，最关键）
-2. **其次**：订单/交易/租赁流程（核心业务）
+以 SaaS 平台为例：
+1. **最先**：计费/credits/payment 服务（涉及资金，最关键）
+2. **其次**：订阅/结账/开票流程（核心业务）
 3. **再次**：管理后台/仪表盘页面（风险较低）
 4. **最后**：静态页面、配置、工具类（很少出 bug）
 
 ```
-/memtree_rebuild wallet_service      # 资金相关优先
+/memtree_rebuild billing_service      # 资金相关优先
 /memtree_rebuild backend             # 然后核心后端
 /memtree_rebuild frontend            # 然后前端
 ```
@@ -116,7 +116,7 @@ git log --since="3 months ago" --name-only --pretty=format: | sort | uniq -c | s
 当你即将修改某个文件，发现它的 `.memory/` 文档很薄时：
 
 ```
-/memtree_rebuild routes/rental.py    # 动手前先补充深度分析
+/memtree_rebuild routes/subscription.py    # 动手前先补充深度分析
 ```
 
 单个文件约 30 秒即可完成，能立即提升 AI 的上下文质量。

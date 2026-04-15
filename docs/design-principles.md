@@ -5,7 +5,7 @@
 Source file path → `.memory/` path is a **pure function**. No search, no indexing, no database lookup.
 
 ```
-src/api/routes/trading.py  →  .memory/backend/routes/trading.py.md
+src/api/routes/checkout.py  →  .memory/backend/routes/checkout.py.md
 src/web/pages/market.vue   →  .memory/frontend/pages/market.vue.md
 ```
 

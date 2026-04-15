@@ -61,14 +61,14 @@ MemTree 会：
 现在 AI agent 在处理你的代码时，就有了上下文：
 
 ```
-"修复钱包余额显示金额不正确的 bug"
+"修复 credits 余额显示金额不正确的 bug"
 
 AI 读取:
-1. .memory/backend/PITFALLS.md → "P001: wallet 用 trading.users.id，ledger 用 auth.user_accounts.id"
-2. .memory/backend/services/wallet_service.py.md → TL;DR + 函数签名
-3. .memory/db/trading/wallet_balances.md → 列定义、ORM 映射不一致
+1. .memory/backend/PITFALLS.md → "P001: billing 用 billing.customers.id，IAM 用 iam.accounts.id"
+2. .memory/backend/services/billing_service.py.md → TL;DR + 函数签名
+3. .memory/db/billing/credits.md → 列定义、ORM 映射不一致
 
-结果：AI 避开了 user_id 陷阱，一次就修对了。
+结果：AI 避开了 customer_id 陷阱，一次就修对了。
 ```
 
 ## 第五步：保持更新
@@ -83,7 +83,7 @@ chmod +x .git/hooks/pre-commit
 **手动：** 大改动后
 ```
 /memtree_rebuild backend              # 重新分析某个服务
-/memtree_rebuild routes/trading.py    # 重新分析单个文件
+/memtree_rebuild routes/checkout.py    # 重新分析单个文件
 ```
 
 ## 验证质量

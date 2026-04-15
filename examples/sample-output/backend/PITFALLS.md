@@ -5,36 +5,36 @@
 ## 🔴 Critical (data corruption / 500 errors)
 
 ### P001: User ID dual namespace
-- **Trap**: `wallet_balances.user_id` uses `trading.users.id`, but `ledger_accounts.owner_id` uses `auth.user_accounts.id`. They are different ID spaces.
-- **Affected files**: services/wallet_service.py, services/ledger_service.py
-- **Correct approach**: When writing to ledger, use `trading_user.auth_user_id` (not `trading_user.id`)
-- **Source**: Production incident — admin top-up created ghost ledger accounts
+- **Trap**: `billing.customers.customer_id` uses `billing.customers.id`, but `iam.accounts.account_id` uses `iam.accounts.id`. They are different ID spaces.
+- **Affected files**: services/billing_service.py, services/iam_service.py
+- **Correct approach**: When writing to IAM, use `customer.iam_account_id` (not `customer.id`)
+- **Source**: Production incident — admin credit grant created orphaned IAM records
 
 ### P002: ORM attribute ≠ DB column name
-- **Trap**: `OrderEvent.event_data` (Python attribute) maps to `event_metadata` (DB column via `Column("event_metadata")`)
-- **Affected files**: models/order.py, services/order_service.py
-- **Correct approach**: In ORM queries use `.event_data`, in raw SQL use `event_metadata`
+- **Trap**: `AuditLog.log_data` (Python attribute) maps to `log_metadata` (DB column via `Column("log_metadata")`)
+- **Affected files**: models/audit.py, services/audit_service.py
+- **Correct approach**: In ORM queries use `.log_data`, in raw SQL use `log_metadata`
 - **Source**: Code review — 3 separate PRs made this mistake
 
 ### P003: Price unit mismatch
-- **Trap**: `listings.price` is in **dollars** (Decimal), but `wallet_balances.available` is in **cents** (integer)
-- **Affected files**: routes/trading.py, services/escrow_service.py
-- **Correct approach**: Always multiply listing price by 100 before comparing with wallet. Use `int(price * 100)`
+- **Trap**: `plans.price` is in **major units** (Decimal), but `billing.credits_available` is in **minor units** (integer)
+- **Affected files**: routes/checkout.py, services/payment_service.py
+- **Correct approach**: Always multiply plan price by 100 before comparing with credits. Use `int(price * 100)`
 - **Source**: Team knowledge
 
 ## 🟡 Warning (logic bugs)
 
 ### P010: Flush-only service pattern
-- **Trap**: Service methods (escrow, settlement) only `flush()`, never `commit()`. The caller must commit.
-- **Affected files**: services/escrow_service.py, services/settlement_service.py
+- **Trap**: Service methods (payment, settlement) only `flush()`, never `commit()`. The caller must commit.
+- **Affected files**: services/payment_service.py, services/settlement_service.py
 - **Correct approach**: After calling any service method, the router/handler must call `await session.commit()`
 - **Source**: Architecture decision — allows caller to control transaction boundaries
 
-### P011: Cancel order requires 3 steps
-- **Trap**: Cancelling an order requires: (1) set `order.cancelled_at`, (2) write `OrderEvent(type='cancelled')`, (3) set `event_metadata` with reason. Missing any step leaves data inconsistent.
-- **Affected files**: routes/orders.py, services/order_service.py
-- **Correct approach**: Always use the `cancel_order()` service method, never manually update fields
-- **Source**: Bug fix — partial cancellation left orphaned escrow holds
+### P011: Cancel subscription requires 3 steps
+- **Trap**: Cancelling a subscription requires: (1) set `subscription.cancelled_at`, (2) write `AuditLog(type='cancelled')`, (3) set `log_metadata` with reason. Missing any step leaves data inconsistent.
+- **Affected files**: routes/subscriptions.py, services/subscription_service.py
+- **Correct approach**: Always use the `cancel_subscription()` service method, never manually update fields
+- **Source**: Bug fix — partial cancellation left orphaned payment holds
 
 ## References
 - DB column mismatches: cross-refs/orm-db-mismatch.md

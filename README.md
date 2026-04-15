@@ -14,14 +14,14 @@
 
 MemTree scans your entire codebase and generates a `.memory/` directory — a persistent, file-level knowledge graph that AI coding agents can read before touching your code. Every file gets a TL;DR, dependency map, known pitfalls, and constraint documentation. When code changes, MemTree updates automatically.
 
-> Tested on a 913-file trading platform: AI agent identified a critical user_id mapping pitfall in **2 seconds** with MemTree, vs. repeatedly making the same mistake without it.
+> Tested on a 900-file SaaS platform: AI agent identified a critical user_id mapping pitfall in **2 seconds** with MemTree, vs. repeatedly making the same mistake without it.
 
 ## The Problem
 
 AI coding agents (Claude Code, Cursor, Aider, Copilot) are powerful but forgetful:
-- They don't know that `wallet_balances.user_id` uses a different ID space than `ledger_accounts.owner_id`
-- They don't know that `listings.price` is in **dollars** but `wallet.balance` is in **cents**
-- They fix a bug in `trading.py` without realizing it breaks `rental.py` downstream
+- They don't know that `billing.customers.id` uses a different ID space than `iam.accounts.id`
+- They don't know that `plans.price` is in **major units** but `billing.credits` is in **minor units**
+- They fix a bug in `checkout.py` without realizing it breaks `subscription.py` downstream
 - They make the same mistake your team fixed 3 months ago
 
 **MemTree solves this by giving AI agents persistent, structured code memory.**
@@ -47,7 +47,7 @@ Your Codebase (913 files)
   │   ├── INDEX.md       ← Directory overview
   │   ├── PITFALLS.md    ← Known pitfalls with lifecycle (ACTIVE/RESOLVED)
   │   └── routes/
-  │       └── trading.py.md  ← TL;DR + Quick Ref + Full dependency graph
+  │       └── checkout.py.md  ← TL;DR + Quick Ref + Full dependency graph
   ├── frontend/
   │   └── ...
   └── db/
@@ -107,26 +107,26 @@ See [CLAUDE.md Integration Guide](docs/claude-md-integration.md).
 
 ## What You Get
 
-### Per-File Memory (`.memory/backend/routes/trading.py.md`)
+### Per-File Memory (`.memory/backend/routes/checkout.py.md`)
 
 ```yaml
 ---
-source: src/backend/routes/trading.py
+source: src/backend/routes/checkout.py
 service: backend
 layer: router
 source_hash: a1b2c3d4
-depends_on: [services/escrow.py, models/order.py]
-depended_by: [../frontend/pages/market.vue]
+depends_on: [services/payment.py, models/subscription.py]
+depended_by: [../frontend/pages/pricing.vue]
 ---
 ```
 
-**TL;DR**: Trade router | calls escrow_service + order_events | price=dollars not cents
+**TL;DR**: Checkout router | calls payment_service + audit_log | price=major units not minor
 
 **Quick Ref**:
 | Export | Signature | Constraint |
 |--------|-----------|------------|
-| create_order | (session, listing_id, buyer_id) → Order | flush-only, caller commits |
-| cancel_order | (session, order_id, reason) → None | must set cancelled_at + write OrderEvent |
+| create_subscription | (session, plan_id, account_id) → Subscription | flush-only, caller commits |
+| cancel_subscription | (session, subscription_id, reason) → None | must set cancelled_at + write AuditLog |
 
 > 80% of the time, the AI only needs to read up to here.
 
@@ -138,9 +138,9 @@ depended_by: [../frontend/pages/market.vue]
 ## 🔴 Critical (will cause data corruption)
 
 ### P001: User ID dual namespace
-- **Trap**: wallet uses trading.users.id, but ledger uses auth.user_accounts.id
-- **Affected**: services/wallet.py, services/ledger.py
-- **Correct**: Use `trading_user.auth_user_id` when writing to ledger
+- **Trap**: billing uses billing.customers.id, but IAM uses iam.accounts.id
+- **Affected**: services/billing.py, services/iam.py
+- **Correct**: Use `customer.iam_account_id` when writing to IAM
 - **Source**: Production incident, 2026-04-05
 ```
 
@@ -249,7 +249,7 @@ Every commit triggers `pre-commit-memtree.py` which compares `source_hash` in fr
 
 **Manual rebuild:**
 ```bash
-/memtree_rebuild routes/trading.py     # Re-analyze one file
+/memtree_rebuild routes/checkout.py     # Re-analyze one file
 /memtree_rebuild backend               # Re-analyze entire service
 /memtree_rebuild db/schema.orders      # Re-analyze DB table
 ```
@@ -277,7 +277,7 @@ services:
 database:
   type: postgresql
   access: "docker exec mydb psql -U user -d mydb"
-  schemas: [public, auth, trading]
+  schemas: [public, iam, billing]
 
 exclude:
   - node_modules
@@ -286,8 +286,8 @@ exclude:
 
 # Team knowledge (optional but powerful)
 pitfalls:
-  - "wallet balance is in cents, listing price is in dollars"
-  - "order_events DB column is event_metadata, but ORM attribute is event_data"
+  - "billing credits are in minor units (cents), plan price is in major units (dollars)"
+  - "audit_logs DB column is log_metadata, but ORM attribute is log_data"
   - "services use flush-only pattern, caller is responsible for commit"
 ```
 

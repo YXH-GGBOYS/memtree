@@ -6,7 +6,7 @@
 ```
 
 Target can be:
-- **File path**: `/memtree_rebuild routes/trading.py` (relative to service)
+- **File path**: `/memtree_rebuild routes/billing.py` (relative to service)
 - **Service name**: `/memtree_rebuild backend` (re-analyze entire service)
 - **DB table**: `/memtree_rebuild db/schema.tablename` (re-analyze DB table)
 

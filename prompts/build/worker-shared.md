@@ -12,7 +12,7 @@ All rules from worker-analyze.md apply, plus these additional requirements for s
 
 ### Extra Rule: Multi-Chain Impact
 Since shared files affect many parts of the codebase, you MUST document:
-- **Which business features** depend on this file (e.g., "models/order.py changes affect: purchasing, rental, refund, admin dashboard")
+- **Which business features** depend on this file (e.g., "models/subscription.py changes affect: checkout, invoicing, refund, admin dashboard")
 - **Who are the top callers** — list at least 5 most important callers in `depended_by`
 - **Modification risk** must be especially thorough — changing a shared file has blast radius across the entire project
 

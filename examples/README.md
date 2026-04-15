@@ -1,6 +1,6 @@
-# Example: Trading Platform
+# Example: SaaS Platform
 
-This is a sanitized example from a real 913-file trading platform where MemTree was deployed and validated.
+This is a sanitized example from a real 900-file SaaS platform where MemTree was deployed and validated.
 
 ## Results
 - **912 per-file memory documents** generated
@@ -16,13 +16,13 @@ This is a sanitized example from a real 913-file trading platform where MemTree 
 |------|--------------|
 | `sample-output/ROOT.md` | Project navigation root — 5 services mapped |
 | `sample-output/backend/PITFALLS.md` | Service pitfalls — 🔴 critical + 🟡 warning with affected files |
-| `sample-output/backend/routes/trading.py.md` | Per-file memory — TL;DR + Quick Ref + Full Analysis |
+| `sample-output/backend/routes/checkout.py.md` | Per-file memory — TL;DR + Quick Ref + Full Analysis |
 
 ## Config Used
 
 ```yaml
 project:
-  name: "Trading Platform"
+  name: "SaaS Platform"
 services:
   - name: backend
     path: src/api/
@@ -50,10 +50,10 @@ services:
     entry_pattern: "background.ts"
 database:
   type: postgresql
-  schemas: [auth, trading, admin]
+  schemas: [iam, billing, admin]
 pitfalls:
-  - "wallet balance is in cents, listing price is in dollars"
-  - "order_events DB column is event_metadata, ORM attribute is event_data"
+  - "billing credits are in minor units, plan price is in major units"
+  - "audit_logs DB column is log_metadata, ORM attribute is log_data"
   - "services use flush-only pattern, caller commits"
-  - "wallet user_id uses trading.users.id, ledger owner_id uses auth.user_accounts.id"
+  - "billing customer_id uses billing.customers.id, IAM account_id uses iam.accounts.id"
 ```

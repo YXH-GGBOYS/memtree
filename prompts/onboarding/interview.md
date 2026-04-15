@@ -37,7 +37,7 @@ For each service:
 → Captures: database.access
 → Test by running: `{access} -c "SELECT 1"` — if it works, proceed
 
-**Q8**: "Which schemas matter? (e.g., public, auth, trading)"
+**Q8**: "Which schemas matter? (e.g., public, auth, billing)"
 → Captures: database.schemas
 
 ### Phase 4: Team Knowledge — THE MOST VALUABLE PART (5 min)
@@ -47,7 +47,7 @@ Explain to user: "These next questions are optional but they're the MOST powerfu
 **Q9**: "Top 3 mistakes a new developer makes in your codebase?"
 Examples to prompt them:
 - "Using the wrong ID field?"
-- "Wrong currency unit (cents vs dollars)?"
+- "Wrong currency unit (minor units vs major units)?"
 - "Forgetting to flush/commit?"
 - "Changing a shared file without realizing the blast radius?"
 

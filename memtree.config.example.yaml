@@ -44,7 +44,7 @@ database:
   schemas:                   # Which schemas to analyze (PostgreSQL specific)
     - public
     # - auth
-    # - trading
+    # - billing
 
 # Path mapping: source file path prefix → .memory/ path prefix
 # MemTree generates this automatically from services, but you can override
@@ -69,8 +69,8 @@ exclude:
 # These become PITFALLS.md entries — the most valuable part of MemTree
 # Format: free text, MemTree will parse and categorize
 pitfalls:
-  # - "wallet balance is stored in cents (integer), but listing price is in dollars (decimal)"
-  # - "order_events DB column name is event_metadata, but the ORM attribute is event_data"
+  # - "billing credits are stored in minor units (integer), but plan price is in major units (decimal)"
+  # - "audit_logs DB column name is event_metadata, but the ORM attribute is event_data"
   # - "services use flush-only pattern — the caller is responsible for session.commit()"
   # - "user_profiles real data is in user.profiles table, public.user_profiles is empty"
 
@@ -80,7 +80,7 @@ quality:
   pass_threshold: 10         # Minimum PASS count to consider V1 successful
   # You can specify exact files to audit (otherwise MemTree picks automatically):
   # sample_files:
-  #   - backend/routes/trading.py
+  #   - backend/routes/billing.py
   #   - frontend/pages/index.vue
 
 # Advanced settings

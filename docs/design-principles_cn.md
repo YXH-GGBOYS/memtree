@@ -5,7 +5,7 @@
 源文件路径 → `.memory/` 路径是一个**纯函数**。不需要搜索、不需要索引、不需要数据库查找。
 
 ```
-src/api/routes/trading.py  →  .memory/backend/routes/trading.py.md
+src/api/routes/checkout.py  →  .memory/backend/routes/checkout.py.md
 src/web/pages/market.vue   →  .memory/frontend/pages/market.vue.md
 ```
 

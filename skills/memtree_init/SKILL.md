@@ -27,12 +27,12 @@ For each service the user describes:
 ### Phase 3: Database (if applicable)
 7. "Do you have a database? What type?" (PostgreSQL, MySQL, etc.)
 8. "How do I run a SQL query?" (e.g., `docker exec db psql -U user -d mydb`)
-9. "Which schemas should I analyze?" (e.g., public, auth, trading)
+9. "Which schemas should I analyze?" (e.g., public, auth, billing)
 
 ### Phase 4: Team Knowledge (most valuable part)
 10. "What are the top 3 things a new developer gets wrong in your codebase?"
 11. "Any naming inconsistencies? (e.g., DB column named X but code calls it Y)"
-12. "Any money/currency gotchas? (different units in different places?)"
+12. "Any unit/currency gotchas? (different units in different places?)"
 13. "Any transaction/concurrency rules? (who commits, who flushes?)"
 14. "What was the last bug that took way too long to fix? What made it hard?"
 

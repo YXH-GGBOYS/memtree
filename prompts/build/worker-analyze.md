@@ -38,7 +38,7 @@ For each file X, document:
 
 ### Rule 4: Record Key Constraints
 - Transaction pattern (flush-only? commit? who's responsible?)
-- Currency/amount units (cents? dollars? which fields?)
+- Currency/amount units (minor units? major units? which fields?)
 - Status enums (list all values)
 - Auth/permission requirements
 - Concurrency/race condition protections

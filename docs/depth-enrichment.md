@@ -15,7 +15,7 @@
 
 ```markdown
 ## TL;DR
-Order router | calls escrow_service | flush-only
+Checkout router | calls payment_service | flush-only
 
 ## Quick Ref
 (empty or auto-generated from function names)
@@ -25,14 +25,14 @@ Order router | calls escrow_service | flush-only
 
 ```markdown
 ## TL;DR
-Order router | calls escrow_service + order_events | price=dollars not cents, flush-only
+Checkout router | calls payment_service + audit_log | price=major units not minor, flush-only
 
 ## Quick Ref
 | Export | Signature | Constraint |
 |--------|-----------|------------|
-| create_order | (session, listing_id, buyer_id) → Order | flush-only, locks listing FOR UPDATE |
-| cancel_order | (session, order_id, reason) → None | must set cancelled_at + write OrderEvent |
-| pay_order | (session, order_id) → Order | deducts wallet (cents), creates escrow hold |
+| create_subscription | (session, plan_id, account_id) → Subscription | flush-only, locks plan FOR UPDATE |
+| cancel_subscription | (session, subscription_id, reason) → None | must set cancelled_at + write AuditLog |
+| process_payment | (session, subscription_id) → Subscription | deducts credits (minor units), creates payment hold |
 
 ## Full Analysis
 ### Children (this file calls)
@@ -45,7 +45,7 @@ Order router | calls escrow_service + order_events | price=dollars not cents, fl
 ### Option 1: Rebuild a Single File
 
 ```bash
-/memtree_rebuild routes/trading.py
+/memtree_rebuild routes/checkout.py
 ```
 
 MemTree will:
@@ -65,7 +65,7 @@ This deep-analyzes every file in the service. Takes ~10-30 min depending on file
 ### Option 3: Rebuild DB Tables
 
 ```bash
-/memtree_rebuild db/trading.orders
+/memtree_rebuild db/billing.subscriptions
 ```
 
 Queries the database for column definitions, constraints, foreign keys, and cross-references with ORM models.
@@ -77,8 +77,8 @@ Queries the database for column definitions, constraints, foreign keys, and cros
 1. Check the quality audit report — which files got PASS/FAIL?
 2. Rebuild any FAIL files first:
    ```
-   /memtree_rebuild routes/trading.py
-   /memtree_rebuild services/escrow_service.py
+   /memtree_rebuild routes/checkout.py
+   /memtree_rebuild services/payment_service.py
    ```
 
 ### Prioritize by Bug Frequency
@@ -99,14 +99,14 @@ Rebuild those files first:
 
 ### Prioritize by Service Criticality
 
-For a trading platform:
-1. **First**: payment/wallet/ledger services (money-critical)
-2. **Second**: order/trade/rental flows (core business)
+For a SaaS platform:
+1. **First**: billing/credits/payment services (money-critical)
+2. **Second**: subscription/checkout/invoicing flows (core business)
 3. **Third**: admin/dashboard pages (lower risk)
 4. **Last**: static pages, config, utilities (rarely buggy)
 
 ```
-/memtree_rebuild wallet_service      # money first
+/memtree_rebuild billing_service      # money first
 /memtree_rebuild backend             # then core backend
 /memtree_rebuild frontend            # then frontend
 ```
@@ -116,7 +116,7 @@ For a trading platform:
 When you're about to work on a file and its .memory/ doc looks thin:
 
 ```
-/memtree_rebuild routes/rental.py    # enrich before you start coding
+/memtree_rebuild routes/subscription.py    # enrich before you start coding
 ```
 
 This takes ~30 seconds per file and immediately improves AI context quality.

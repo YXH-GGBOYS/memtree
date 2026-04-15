@@ -61,14 +61,14 @@ When done, you'll have a `.memory/` directory in your project root.
 Now when AI agents work on your code, they have context:
 
 ```
-"Fix the bug where wallet balance shows incorrect amount"
+"Fix the bug where credit balance shows incorrect amount"
 
 AI reads:
-1. .memory/backend/PITFALLS.md → "P001: wallet uses trading.users.id, ledger uses auth.user_accounts.id"
-2. .memory/backend/services/wallet_service.py.md → TL;DR + function signatures
-3. .memory/db/trading/wallet_balances.md → column definitions, ORM mismatches
+1. .memory/backend/PITFALLS.md → "P001: billing uses billing.customers.id, IAM uses iam.accounts.id"
+2. .memory/backend/services/billing_service.py.md → TL;DR + function signatures
+3. .memory/db/billing/credits.md → column definitions, ORM mismatches
 
-Result: AI avoids the user_id pitfall and fixes correctly on first try.
+Result: AI avoids the customer_id pitfall and fixes correctly on first try.
 ```
 
 ## Step 5: Keep It Fresh
@@ -83,7 +83,7 @@ Every commit automatically detects stale .memory/ files.
 **Manual**: After significant changes
 ```
 /memtree_rebuild backend              # Re-analyze a service
-/memtree_rebuild routes/trading.py    # Re-analyze one file
+/memtree_rebuild routes/checkout.py    # Re-analyze one file
 ```
 
 ## Verify Quality
