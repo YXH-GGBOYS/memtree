@@ -1,0 +1,34 @@
+<!-- memtree:begin -->
+## MemTree (project memory)
+
+Each kind of fact has exactly one authoritative file; everywhere else holds a pointer, not a copy.
+
+| Fact | Authority |
+|---|---|
+| hard invariants (money, data, environments) | `.memory/CRITICAL_FACTS.md` (digest injected by hook) |
+| known traps of an area | `.memory/<area>/PITFALLS.md` |
+| incidents and root causes | `.memory/events/` and `.memory/events/INDEX.md` |
+| state of a line of work | `.memory/threads/<name>.md` (handoff card) |
+
+If two places disagree, that is a bug: fix the other place toward the authority, in the file.
+
+- Before changing code in an area, read its `PITFALLS.md`.
+- Look things up with `memq.py <words>` first, then Read with offset/limit. Do not cat or Read a
+  whole large knowledge file to find one entry.
+- When the handoff reminder fires, finish the current step, write a handoff card at the next clean
+  point (skill `memtree-handoff`) and continue in a fresh session from the card. A card never
+  carries production or deploy authorization.
+- A negative claim ("X doesn't exist / can't be done / must be built") needs evidence: run
+  `verify_absence.py <name>` and keep the command and result next to the claim. Name the state:
+  doesn't exist / built but not wired / wired but switched off / live (live needs runtime evidence).
+- Before changing a shared field, status value or constant, run `who_reads.py <symbol>` and check
+  every condition that reads it.
+- For hooks, injections and gates, verify what the model actually receives: measure the injected
+  bytes and the real exit code, not what the script says about itself.
+- A correction said only in chat is not a correction. Fix the source file and mark the old claim
+  as superseded there.
+- At the end of a line of work, run skill `memtree-closeout`.
+
+Script paths: the `memtree-lookup` skill has them (plugin install), or `~/.claude/memtree/scripts/`
+(manual install).
+<!-- memtree:end -->

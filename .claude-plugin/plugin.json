@@ -1,0 +1,13 @@
+{
+  "name": "memtree",
+  "displayName": "MemTree",
+  "version": "2.0.0",
+  "description": "Keep Claude Code sessions short and project facts in one place: inject-only hooks (hard-invariant digest, post-compaction re-grounding, handoff reminders), handoff cards, cheap knowledge lookup.",
+  "author": {
+    "name": "MemTree contributors"
+  },
+  "homepage": "https://github.com/YXH-GGBOYS/memtree",
+  "repository": "https://github.com/YXH-GGBOYS/memtree",
+  "license": "MIT",
+  "keywords": ["memory", "context", "handoff", "hooks", "knowledge-base", "workflow"]
+}

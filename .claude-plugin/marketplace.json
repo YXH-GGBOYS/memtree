@@ -1,0 +1,15 @@
+{
+  "name": "memtree",
+  "description": "MemTree: a workflow kit for Claude Code (authority layers, handoff cards, inject-only hooks).",
+  "owner": {
+    "name": "MemTree contributors"
+  },
+  "plugins": [
+    {
+      "name": "memtree",
+      "source": "./",
+      "description": "Inject-only hooks, handoff cards and cheap knowledge lookup for Claude Code projects.",
+      "category": "productivity"
+    }
+  ]
+}
