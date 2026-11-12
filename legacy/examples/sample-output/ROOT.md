@@ -6,9 +6,9 @@
 | Service | Path | Files | Purpose |
 |---------|------|-------|---------|
 | backend | src/api/ | 285 | Python FastAPI — auth, billing, subscriptions, projects, notifications |
-| frontend | src/web/ | 391 | Vue 3 Nuxt — marketplace SPA, 29 languages |
-| admin | admin/src/ | 157 | React — admin dashboard, RBAC, KYC, risk management |
-| gateway | src/gateway/ | 44 | Python FastAPI — market data, search, rankings |
+| frontend | src/web/ | 391 | Vue 3 Nuxt — customer-facing SPA, 29 languages |
+| admin | admin/src/ | 157 | React — admin dashboard, RBAC, audit log, support tools |
+| gateway | src/gateway/ | 44 | Python FastAPI — search, reports, rankings |
 | extension | ext/src/ | 80 | TypeScript — CLI plugin, Slack integration |
 
 ## Navigation

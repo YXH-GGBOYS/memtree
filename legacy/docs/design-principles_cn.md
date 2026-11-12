@@ -6,7 +6,7 @@
 
 ```
 src/api/routes/checkout.py  →  .memory/backend/routes/checkout.py.md
-src/web/pages/market.vue   →  .memory/frontend/pages/market.vue.md
+src/web/pages/dashboard.vue →  .memory/frontend/pages/dashboard.vue.md
 ```
 
 映射规则定义在 `memtree.config.yaml` 的 `path_map` 中（从 services 自动生成）。AI agent 永远不需要搜索对应的 `.memory/` 文件 — 直接计算路径即可。

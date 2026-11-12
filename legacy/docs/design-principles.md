@@ -6,7 +6,7 @@ Source file path → `.memory/` path is a **pure function**. No search, no index
 
 ```
 src/api/routes/checkout.py  →  .memory/backend/routes/checkout.py.md
-src/web/pages/market.vue   →  .memory/frontend/pages/market.vue.md
+src/web/pages/dashboard.vue →  .memory/frontend/pages/dashboard.vue.md
 ```
 
 The mapping is defined in `memtree.config.yaml` under `path_map` (auto-generated from services). AI agents never need to search for the right .memory/ file — they compute the path directly.
