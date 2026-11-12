@@ -131,7 +131,9 @@ def search(kind: str, path: Path, words: List[str]) -> List[Card]:
         else:
             head, head_line = title, title_line
         score = sum(low.count(w) for w in words) + (3 if m else 0)
-        cards.append(Card(kind, path, n, head[:TITLE], head_line, snippet_around(line, words), score))
+        title_text = head if len(head) <= TITLE else head[:TITLE - 1] + "…"
+        snip = "" if n == head_line and len(head) <= TITLE else snippet_around(line, words)
+        cards.append(Card(kind, path, n, title_text, head_line, snip, score))
     return cards
 
 
@@ -171,7 +173,7 @@ def main() -> int:
         except ValueError:
             shown = c.path
         print(f"[{c.kind}] {shown}:{c.line}  {c.title}")
-        if c.snippet and c.snippet.strip("…") not in c.title:
+        if c.snippet:
             print(f"    {c.snippet}")
     if len(ranked) > args.n:
         print(f"…{len(ranked) - args.n} more; raise -n or add a keyword")

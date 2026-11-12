@@ -2,359 +2,225 @@
 
 # MemTree
 
-**Build structured code memory so AI agents stop making the same mistakes twice.**
+Keep Claude Code sessions short and project facts in one place.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Claude Code](https://img.shields.io/badge/Built%20for-Claude%20Code-blueviolet)](https://claude.ai/code)
+[![Claude Code plugin](https://img.shields.io/badge/Claude%20Code-plugin-blueviolet)](https://code.claude.com/docs/en/plugins)
 [![Python 3.9+](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://python.org)
 
 [English](README.md) | [中文](README_CN.md)
 
 </div>
 
-MemTree scans your entire codebase and generates a `.memory/` directory — a persistent, file-level knowledge graph that AI coding agents can read before touching your code. Every file gets a TL;DR, dependency map, known pitfalls, and constraint documentation. When code changes, MemTree updates automatically.
+MemTree is a small kit for [Claude Code](https://code.claude.com): three hooks that only add text to
+the context, four skills, six stdlib-only Python scripts, and a convention for where each kind of
+project fact lives. Install it as a Claude Code plugin or by copying files. It ships a workflow and
+the reasoning behind it, not anyone's project data.
 
-> Tested on a 900-file SaaS platform: AI agent identified a critical user_id mapping pitfall in **2 seconds** with MemTree, vs. repeatedly making the same mistake without it.
+## Why: context is the bill
 
-## The Problem
+Every model call re-sends the whole conversation. So the cost of a session grows with how long it
+is times how many calls it makes, not with whether you happened to read a file twice.
 
-AI coding agents (Claude Code, Cursor, Aider, Copilot) are powerful but forgetful:
-- They don't know that `billing.customers.id` uses a different ID space than `iam.accounts.id`
-- They don't know that `plans.price` is in **major units** but `billing.credits` is in **minor units**
-- They fix a bug in `checkout.py` without realizing it breaks `subscription.py` downstream
-- They make the same mistake your team fixed 3 months ago
+We measured this on one solo developer's Claude Code transcripts: about three weeks, across about
+20 projects. Only ratios are given here; your numbers will differ, and `scripts/token_report.py`
+computes them for you from your own local transcripts.
 
-**MemTree solves this by giving AI agents persistent, structured code memory.**
+| Observation | Kind |
+|---|---|
+| Literal re-reads of the same file within one session: under 0.1% of re-sent context | measured |
+| About 80% of re-sent context tokens were in calls whose context was above 300K tokens; about 50% above 500K | measured |
+| A fresh session already starts at about 90K-100K tokens of fixed overhead (tools, system prompt, CLAUDE.md) | measured |
+| Handing off to a fresh session at 450K (restarting at about 150K) would have cut re-sent context by about 35-40% | simulated, ignores what a handoff loses |
+| One common keyword grepped over the knowledge files returned about 500 KB; the same lookup through cards returned about 4 KB | measured once |
 
-## How It Works
+What follows from that:
+
+1. Long sessions are where the money goes. Hand off to a fresh session at a clean point, from a
+   short card, before the context gets large. MemTree reminds you when it does.
+2. Whatever enters the context stays there for every later call. Inject the hard rules once per
+   session, not on every prompt, and look knowledge up as small cards instead of grepping big files.
+3. A fact kept in two places drifts. Keep each kind of fact in one authoritative file and point to it.
+
+More detail and the simulation method: [docs/context-economics.md](docs/context-economics.md).
+
+## What you get
+
+| Piece | What it does |
+|---|---|
+| `hooks/facts_digest.py` (UserPromptSubmit) | Injects the hard-invariant digest from `.memory/CRITICAL_FACTS.md` once per session; afterwards a one-line pointer; re-injects in full if the digest changes |
+| `hooks/post_compact.py` (SessionStart, `compact`) | After a compaction: the digest again, a "the summary is lossy, trust files" reminder, and the head of the latest open handoff card, all under 9,000 bytes |
+| `hooks/ctx_handoff_reminder.py` (UserPromptSubmit) | Reads the real context size from the transcript and reminds you once per step (45% / 60% / 75% of the window) to hand off |
+| skill `memtree-init` | Sets up `.memory/` in a project through a short Q&A; never overwrites |
+| skill `memtree-handoff` | When and how to write a handoff card and continue in a fresh session |
+| skill `memtree-closeout` | Closing a line of work: event, PITFALLS lifecycle, close the card, fix corrections at their source |
+| skill `memtree-lookup` | Querying knowledge cheaply, checking negative claims, finding who reads a field |
+| `scripts/memq.py` | Card lookup across CRITICAL_FACTS, PITFALLS, the events index and handoff cards |
+| `scripts/ctx_usage.py` | Current session context size, read from the transcript |
+| `scripts/token_report.py` | Local report of where your context tokens went, plus the handoff simulation |
+| `scripts/verify_absence.py` | Evidence for "X doesn't exist" claims: two search methods, exact commands, hit counts |
+| `scripts/who_reads.py` | Every reader of a field or status, with the conditions that test it listed separately |
+| `templates/` | CRITICAL_FACTS, PITFALLS, event, events index, handoff card, CLAUDE.md snippet |
+
+## Install
+
+### As a Claude Code plugin
 
 ```
-Your Codebase (913 files)
-        ↓
-  /memtree_init          ← Interactive Q&A or auto-scan
-        ↓
-  /memtree_bootstrap     ← Coordinator + Workers analyze every file
-        ↓
-  .memory/               ← Persistent code memory (lives in your repo)
-  ├── ROOT.md            ← "Start here" — service map + navigation
-  ├── HEALTH.md          ← Auto-generated system health snapshot
-  ├── events/            ← Event Layer — structured change history
-  │   ├── INDEX.md       ← Searchable event index
-  │   ├── TEMPLATE.md    ← Event file template
-  │   └── 2026-04/       ← Events by month
-  ├── cross-refs/        ← Cross-service field mappings + gotchas
-  ├── backend/
-  │   ├── INDEX.md       ← Directory overview
-  │   ├── PITFALLS.md    ← Known pitfalls with lifecycle (ACTIVE/RESOLVED)
-  │   └── routes/
-  │       └── checkout.py.md  ← TL;DR + Quick Ref + Full dependency graph
-  ├── frontend/
-  │   └── ...
-  └── db/
-      └── schema/table.md   ← Column definitions + ORM mapping mismatches
+/plugin marketplace add YXH-GGBOYS/memtree
+/plugin install memtree@memtree
 ```
 
-**AI agent workflow with MemTree:**
-1. Read `HEALTH.md` — 10-second overview of hotspots, change coupling, stale pitfalls
-2. Read `PITFALLS.md` — know the traps **before** writing code
-3. Read `ROOT.md` → `INDEX.md` → `per-file.md` — 3 hops to full context
-4. Search `events/INDEX.md` — find similar past bugs and their root causes
-5. After fixing, MemTree auto-updates via git hooks
-6. Write an event if the fix has diagnostic value
+The plugin registers the three hooks and the four skills (invoked as `/memtree:memtree-init` and so
+on). The hooks print nothing in projects that have no MemTree `.memory/` folder, so installing it
+for your user account is safe.
 
-## Quick Start (5 minutes)
-
-### 1. Install
+### Manual install (no plugin system)
 
 ```bash
 git clone https://github.com/YXH-GGBOYS/memtree.git ~/memtree
 cd ~/memtree
-pip install -r requirements.txt      # PyYAML
-mkdir -p ~/.claude/skills
-cp -r skills/memtree_* ~/.claude/skills/
+./install.sh            # copies skills to ~/.claude/skills/, hooks + scripts to ~/.claude/memtree/,
+                        # then prints the hook JSON to merge into ~/.claude/settings.json
+./install.sh --apply    # or: let it merge the hooks for you, after backing up settings.json
 ```
 
-### 2. Initialize
+Requires Python 3.9+ and nothing else. On Windows, if `python3` is not on PATH, change the hook
+commands to `python` or `py -3`.
 
-```bash
-# Option A: Interactive — MemTree asks about your project
-/memtree_init
+To uninstall: `/plugin uninstall memtree@memtree`, or for a manual install delete
+`~/.claude/skills/memtree-*` and `~/.claude/memtree/` and remove the three hook entries from
+`settings.json`.
 
-# Option B: Auto-scan — MemTree discovers your codebase structure
-/memtree_init --auto
-```
+### Set up a project
 
-This generates `memtree.config.yaml` with your project structure.
-
-### 3. Build
-
-```bash
-/memtree_bootstrap
-```
-
-MemTree will:
-- Scan your codebase and identify code chains (import/dependency graph)
-- Analyze shared "hot files" first (files imported by 3+ others)
-- Spawn parallel workers to analyze each chain
-- Generate `PITFALLS.md` per service from your team's known gotchas
-- Run quality audit (15-file sample verification)
-- Output: `.memory/` directory committed to your repo
-
-### 4. Configure CLAUDE.md (Important!)
-
-Add MemTree rules to your project's `CLAUDE.md` so Claude Code reads `.memory/` in every session.
-See [CLAUDE.md Integration Guide](docs/claude-md-integration.md).
-
-## What You Get
-
-### Per-File Memory (`.memory/backend/routes/checkout.py.md`)
-
-```yaml
----
-source: src/backend/routes/checkout.py
-service: backend
-layer: router
-source_hash: a1b2c3d4
-depends_on: [services/payment.py, models/subscription.py]
-depended_by: [../frontend/pages/pricing.vue]
----
-```
-
-**TL;DR**: Checkout router | calls payment_service + audit_log | price=major units not minor
-
-**Quick Ref**:
-| Export | Signature | Constraint |
-|--------|-----------|------------|
-| create_subscription | (session, plan_id, account_id) → Subscription | flush-only, caller commits |
-| cancel_subscription | (session, subscription_id, reason) → None | must set cancelled_at + write AuditLog |
-
-> 80% of the time, the AI only needs to read up to here.
-
-**Full Analysis**: complete dependency graph, sibling files, modification risks...
-
-### Service Pitfalls (`PITFALLS.md`)
-
-```markdown
-## 🔴 Critical (will cause data corruption)
-
-### P001: User ID dual namespace
-- **Trap**: billing uses billing.customers.id, but IAM uses iam.accounts.id
-- **Affected**: services/billing.py, services/iam.py
-- **Correct**: Use `customer.iam_account_id` when writing to IAM
-- **Source**: Production incident, 2026-04-05
-```
-
-### Cross-Service References (`cross-refs/`)
+In Claude Code, inside your project, run the `memtree-init` skill (`/memtree:memtree-init` with the
+plugin, `/memtree-init` after a manual install). It asks a few questions (your areas or services,
+the facts that cost money or data when gotten wrong) and creates:
 
 ```
-cross-refs/
-├── INDEX.md                 ← "What problem? → Read which file"
-├── orm-db-mismatch.md       ← ORM attribute ≠ DB column name
-├── field-confusion.md       ← Same name, different meaning across services
-├── api-field-mapping.md     ← Frontend field → API → DB column
-└── service-schema-matrix.md ← Which service reads/writes which DB schema
+.memory/
+├── CRITICAL_FACTS.md      hard invariants; the DIGEST block is what the hooks inject
+├── memtree.json           {"extra_sources": []}  (optional extra files for memq)
+├── billing/PITFALLS.md    one per area you named
+├── auth/PITFALLS.md
+├── events/INDEX.md        one line per incident; files in events/YYYY-MM/
+└── threads/               handoff cards, one per line of work
 ```
 
-## Event Layer
+Without Claude Code: `python3 scripts/memtree_init.py --areas billing,auth,api --claude-md`.
+Commit `.memory/` with your code; it is project knowledge. A small filled-in example lives in
+[examples/saas-app/](examples/saas-app/).
 
-Track **why** code changes happen, not just what changed. Events bridge the gap between git history (the diff) and institutional knowledge (the context).
+## How it works
 
-```bash
-# Create events directory
-mkdir -p .memory/events/2026-04
-cp templates/event.md.template .memory/events/TEMPLATE.md
-```
+### One authority per fact
 
-**When to write an event:**
-- Fixed a bug with diagnostic value (root cause analysis worth preserving)
-- Shipped a new feature
-- Deployment incident
-- Architecture decision
+| Kind of fact | Its only authoritative home |
+|---|---|
+| Hard invariants: money units, data ownership, which environment is which, what needs a human go-ahead | `.memory/CRITICAL_FACTS.md` (the `• ` lines between `<!-- DIGEST-START -->` and `<!-- DIGEST-END -->` are injected) |
+| Known traps of one area, with a lifecycle (status ACTIVE / RESOLVED, type, source event, last_seen, how to verify) | `.memory/<area>/PITFALLS.md` |
+| Incidents: symptom, root cause, fix, how it was verified | `.memory/events/YYYY-MM/EVT-*.md` plus one line in `.memory/events/INDEX.md` |
+| Where a line of work stands | `.memory/threads/<name>.md` handoff card |
 
-**Event format** (`EVT-YYYYMMDD-NNN-slug.md`):
-```yaml
----
-id: EVT-20260408-001
-date: 2026-04-08
-type: bugfix                    # bugfix | feature | refactor | deploy | incident
-severity: high
-services: [backend, frontend]
-pitfalls_created: [backend/P012]
-pitfalls_validated: [backend/P003]
-outcome: deployed
----
-## Symptoms ...
-## Root Cause ...
-## Fix ...
-## Lessons ...
-```
+Everywhere else holds a pointer (`see billing/PITFALLS.md P003`), not a restatement. If two places
+disagree, that is a bug: fix the one that is not the authority. A correction that is only said in
+chat is not a correction, because the next session never sees the chat.
 
-**How to use events:**
-- Before fixing a bug → search `events/INDEX.md` for similar past issues
-- When writing PITFALLs → link to the event that discovered them
-- In `HEALTH.md` → aggregate event statistics
+### Handoff cards
 
-## HEALTH.md — System Health Snapshot
+A card is at most 60 lines with eight fixed sections: goal and acceptance; current step; decisions
+with their sources; authorization (always "none"); files and commits touched; not done or not
+verified; next step (the first one concrete); read first (at most five pointers with line numbers).
+The new session reads only the card and its pointers, checks the state against git, and continues.
+A card never carries production or deploy authorization; the new session has to be given it again.
+See [skills/memtree-handoff/SKILL.md](skills/memtree-handoff/SKILL.md).
 
-Auto-generated overview of your codebase's current state:
+### The hooks only inject
 
-```bash
-python3 .memory/scripts/generate-health.py
-```
+MemTree hooks never block, rewrite or reroute a tool call. They add no PreToolUse handlers, add no
+tools of their own, and store no tool output. They always exit 0 and print nothing when the
+project has no MemTree `.memory/` (a folder with `CRITICAL_FACTS.md` or `memtree.json`).
 
-**Output includes:**
-- **Change Hotspots**: files changed most in the last 14 days
-- **Change Coupling**: files that frequently change together across services
-- **PITFALL Stats**: active/resolved counts by type, stale warnings
-- **Event Stats**: recent bugfix/feature/incident counts
+This is deliberate. Some context-saving tools add their own shell-execution tools or reroute
+commands through them. Any PreToolUse safety hooks you configured for Bash then never see those
+commands, and the rerouted output (database query results included) can end up stored on disk in
+plaintext. If you use such a tool, check that your guard hooks still fire for the commands it runs.
 
-Read `HEALTH.md` at the start of every session to get a 10-second overview.
+Two limits shaped the hook design:
 
-## PITFALL Lifecycle
+- Claude Code caps hook output at 10,000 characters. Above that it saves the output to a file and
+  shows the model only a preview of about 2,000 characters, and nothing asks the model to open the
+  file. We hit this more than once before adding a budget, so every MemTree hook keeps its output
+  under 9,000 bytes and cuts at a UTF-8 boundary with a visible `…truncated` line.
+- Check what the model actually receives. For a hook, that means the bytes it prints and its real
+  exit code, run with the same stdin Claude Code sends; what a script says about itself is not
+  evidence. The `memtree-init` skill ends with exactly that check.
 
-PITFALLs now have status, type, and temporal awareness:
+Settings (environment variables, all optional):
 
-```
-ACTIVE (discovered) → validated by events → RESOLVED (fixed)
-                    → 30 days no validation → ⚠️ STALE (HEALTH.md warns)
-```
+| Variable | Effect |
+|---|---|
+| `MEMTREE_CONTEXT_WINDOW` | Context window in tokens. The reminder guesses 1M unless the model name or the session size says otherwise; set `200000` if you use a 200K model |
+| `MEMTREE_HANDOFF_TOKENS` | Absolute reminder steps, e.g. `300000,450000` (overrides the 45/60/75% steps) |
+| `MEMTREE_STATE_DIR` | Where per-session markers go (default `~/.claude/state/memtree/`) |
 
-**Types:**
-| Type | Meaning | Expires? |
-|------|---------|----------|
-| `architecture` | Inherent to system design | No (unless major refactor) |
-| `bug-derived` | Learned from a specific bug | 30 days without validation → STALE |
-| `config` | Related to deployment/config | Same as bug-derived |
+### Negative claims and shared fields
 
-See `templates/pitfalls.md.template` for the full format.
+Two habits that the scripts make cheap:
 
-## Design Principles
+- Before writing "X doesn't exist / can't be done / must be built", run `verify_absence.py X` and
+  keep its command and counts next to the claim. Such claims get copied forward unchallenged, and
+  when they are wrong the error always points toward extra work. Also say which state a capability
+  is in: doesn't exist, built but not wired, wired but switched off, or live. "Live" needs runtime
+  evidence, and watch for the trap of a component that runs and logs but always answers "unknown".
+- Before changing a shared field or status value, run `who_reads.py <symbol>`. Its "conditions" group
+  (if / where / filter / == / in) is the one people forget: change what a field holds and one of
+  those can become always true or always false without any error.
 
-| # | Principle | Implementation |
-|---|-----------|----------------|
-| 1 | **Find** — deterministic path mapping | Source path → `.memory/` path is a pure function. No search needed. |
-| 2 | **Read** — 3-hop navigation | ROOT → INDEX → per-file. 80% answered by TL;DR + Quick Ref. |
-| 3 | **Update** — code changes, memory follows | Git hooks detect changes → auto-update affected `.memory/` files. |
-| 4 | **Pitfalls first** — read traps before coding | `PITFALLS.md` is mandatory reading. AI must read it before writing any code. |
-| 5 | **Verify** — trust but check | Quality audit samples 15 files and verifies against source code. |
-| 6 | **Layered reading** — TL;DR -> Quick Ref -> Full | 80% answered by TL;DR + Quick Ref. AI can stop at any layer. |
-| 7 | **Shared files first** — hot files analyzed once | Files imported by 3+ chains analyzed by dedicated Worker. ~35% token savings. |
+## Measured, simulated, untested
 
-## Keeping It Fresh
+- Measured: the ratios in the first table, from one developer's local transcripts over about three
+  weeks. They describe that workload, not yours; run `token_report.py` for your own.
+- Simulated: the 35-40% saving from handing off at 450K. The simulation replays each session's real
+  context sizes as if it had restarted at about 150K; it does not count the card, re-reading files in
+  the new session, or information lost in the handoff. Read it as an upper bound.
+- Not measured: how much a handoff loses, and how often the digest prevents a mistake.
+- Tested: the hooks and scripts have unit tests (`python3 -m pytest tests` or
+  `python3 -m unittest discover -s tests`) and were smoke-tested by feeding them sample stdin.
+- Not yet tested: installation through `/plugin` end to end, Windows, and the window-size guess for
+  every model name.
 
-MemTree stays in sync with your code through two mechanisms:
+## Related projects
 
-**Auto-update (git hook):**
-Every commit triggers `pre-commit-memtree.py` which compares `source_hash` in frontmatter with the actual file hash. Changed files are marked stale and refreshed.
+Other tools people use alongside or instead of MemTree, by category:
 
-**Manual rebuild:**
-```bash
-/memtree_rebuild routes/checkout.py     # Re-analyze one file
-/memtree_rebuild backend               # Re-analyze entire service
-/memtree_rebuild db/schema.orders      # Re-analyze DB table
-```
+- Session analytics: ccusage reports token usage and cost from Claude Code's local logs.
+  `token_report.py` asks a different question (which sessions and content re-send the most context).
+- Memory plugins: claude-mem records what happens in sessions and feeds a compressed version into
+  later sessions automatically. MemTree keeps hand-curated facts in files you review and commit.
+- Output sandboxing: context-mode keeps large tool output out of the context window by running
+  commands through its own tools. With any tool of this kind, check that your PreToolUse safety
+  hooks still see the commands it runs (see "The hooks only inject" above).
+- Code graphs: graphify builds a queryable graph of a codebase. MemTree does not index code; the
+  agent reads the source, which is always current.
 
-## Configuration
+## Coming from v1
 
-```yaml
-# memtree.config.yaml
-project:
-  name: "My Project"
-  description: "E-commerce platform"
+v1 generated an LLM-written summary for every source file and kept them fresh with an edit hook. In
+real use about 55% of those summaries sat untouched for six months or more, they were almost never
+read over three weeks, and the hook queued updates on every edit anyway. That pipeline now lives in
+[legacy/](legacy/README.md) with instructions if you still want it. `PITFALLS.md` and the event log
+carry over unchanged in spirit; v2 adds the lifecycle fields and the digest. See
+[CHANGELOG.md](CHANGELOG.md).
 
-services:
-  - name: backend
-    path: src/api/
-    lang: python
-    framework: fastapi
-    entry_pattern: "routes/*.py"
-  - name: frontend
-    path: src/web/
-    lang: typescript
-    framework: nuxt
-    entry_pattern: "pages/**/*.vue"
+## Docs
 
-database:
-  type: postgresql
-  access: "docker exec mydb psql -U user -d mydb"
-  schemas: [public, iam, billing]
-
-exclude:
-  - node_modules
-  - __pycache__
-  - "*.test.*"
-
-# Team knowledge (optional but powerful)
-pitfalls:
-  - "billing credits are in minor units (cents), plan price is in major units (dollars)"
-  - "audit_logs DB column is log_metadata, but ORM attribute is log_data"
-  - "services use flush-only pattern, caller is responsible for commit"
-```
-
-## How Is This Different?
-
-| Tool | What it does | What MemTree adds |
-|------|-------------|-------------------|
-| **typedoc/jsdoc** | Generate API docs from comments | MemTree captures **relationships**, **pitfalls**, and **constraints** — not just signatures |
-| **mem0** | General-purpose AI memory | MemTree is **code-specific**: file-level dependency graphs, ORM↔DB mapping, service boundaries |
-| **aider repo-map** | Token-efficient code map | MemTree adds **pitfall tracking**, **quality auditing**, and **auto-updates** |
-| **RAG / embeddings** | Semantic search over code | MemTree uses **deterministic paths** (no search needed) + **structured format** (not freeform chunks) |
-
-## Project Structure
-
-```
-memtree/
-├── skills/                  # Claude Code skills
-│   ├── memtree_init/        # /memtree_init — onboarding (Q&A or auto-scan)
-│   ├── memtree_bootstrap/   # /memtree_bootstrap — build .memory/
-│   └── memtree_rebuild/     # /memtree_rebuild — manual refresh
-├── prompts/                 # Reusable prompt templates
-│   ├── onboarding/          # Interview + auto-scan prompts
-│   ├── build/               # Coordinator + Worker prompts
-│   ├── quality/             # Audit + validation prompts
-│   └── update/              # Incremental update prompts
-├── scripts/                 # Python/Bash automation
-│   ├── generate-health.py   # HEALTH.md generator
-│   ├── quality-eval.py      # Quality evaluator (deterministic + model-based)
-│   ├── validate-memtree.py  # Hash consistency checker
-│   ├── incremental-update.py # Process pending updates
-│   └── ...                  # Hooks, skeleton generation, etc.
-├── templates/               # Output format templates
-│   ├── event.md.template    # Event file format
-│   ├── pitfalls.md.template # PITFALL format (with lifecycle)
-│   └── per-file.md.template # Per-file analysis format
-├── docs/                    # Detailed documentation
-└── examples/                # Sample output from a real project
-```
-
-## Documentation
-
-- [Getting Started](docs/getting-started.md) — 5-minute setup guide
-- [Design Principles](docs/design-principles.md) — Why MemTree is built this way
-- [Depth Enrichment](docs/depth-enrichment.md) — How to add deep analysis after bootstrap
-- [CLAUDE.md Integration](docs/claude-md-integration.md) — Make Claude Code read .memory/ every session
-
-## Requirements
-
-- [Claude Code](https://claude.ai/code) (CLI, Desktop, or IDE extension)
-- Git (for auto-update hooks)
-- Python 3.9+ (for scripts)
-- Database access (optional, for DB schema memory)
-
-## Roadmap
-
-- [x] **v1.0** — Core: bootstrap + quality audit + manual rebuild
-- [x] **v1.1** — Auto-update: git hooks + incremental refresh
-- [x] **v1.2** — Event Layer + HEALTH.md + PITFALL lifecycle + quality eval
-- [ ] **v2.0** — Cross-platform: Cursor, Aider, Copilot support
-
-## Contributing
-
-We welcome contributions! Open an issue or PR. We especially welcome:
-- Prompt improvements (better Worker analysis, fewer hallucinations)
-- Language/framework support (Go, Rust, Java, Angular, etc.)
-- Quality audit enhancements
+- [Getting started](docs/getting-started.md)
+- [Context economics](docs/context-economics.md)
+- [Design principles](docs/design-principles.md)
+- [CLAUDE.md integration](docs/claude-md-integration.md)
 
 ## License
 
-MIT
+MIT. See [LICENSE](LICENSE).

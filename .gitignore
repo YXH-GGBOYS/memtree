@@ -4,7 +4,9 @@
 *.key
 node_modules/
 __pycache__/
-.memory/
+.pytest_cache/
+# this repo's own working memory, not the example under examples/
+/.memory/
 *.pyc
 .venv/
 venv/
