@@ -60,7 +60,10 @@ saving = 1 - simulated_total / real_total
 ```
 
 After a handoff the simulated session grows exactly as the real one did. With `T = 450K` and
-`R ≈ 150K`, the saving on the measured data was about 35-40%.
+`R ≈ 150K`, the saving on the measured data was about 30%. An earlier version of this simulation
+reported 35-40% on the same data: after the original session compacted on its own, it kept the
+simulated session flat at `R` instead of letting it grow again, which over-credits the saving. The
+`floor` step above is the fix.
 
 What the simulation does not count, so read the number as an upper bound:
 

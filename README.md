@@ -31,7 +31,7 @@ computes them for you from your own local transcripts.
 | Literal re-reads of the same file within one session: under 0.1% of re-sent context | measured |
 | About 80% of re-sent context tokens were in calls whose context was above 300K tokens; about 50% above 500K | measured |
 | A fresh session already starts at about 90K-100K tokens of fixed overhead (tools, system prompt, CLAUDE.md) | measured |
-| Handing off to a fresh session at 450K (restarting at about 150K) would have cut re-sent context by about 35-40% | simulated, ignores what a handoff loses |
+| Handing off to a fresh session at 450K (restarting at about 150K) would have cut re-sent context by about 30% | simulated, ignores what a handoff loses |
 | One common keyword grepped over the knowledge files returned about 500 KB; the same lookup through cards returned about 4 KB | measured once |
 
 What follows from that:
@@ -182,9 +182,11 @@ Two habits that the scripts make cheap:
 
 - Measured: the ratios in the first table, from one developer's local transcripts over about three
   weeks. They describe that workload, not yours; run `token_report.py` for your own.
-- Simulated: the 35-40% saving from handing off at 450K. The simulation replays each session's real
+- Simulated: the ~30% saving from handing off at 450K. The simulation replays each session's real
   context sizes as if it had restarted at about 150K; it does not count the card, re-reading files in
-  the new session, or information lost in the handoff. Read it as an upper bound.
+  the new session, or information lost in the handoff. Read it as an upper bound. An earlier version
+  of the simulation reported 35-40% on the same data, because it kept crediting savings after the
+  original session had already compacted on its own; the shipped version does not.
 - Not measured: how much a handoff loses, and how often the digest prevents a mistake.
 - Tested: the hooks and scripts have unit tests (`python3 -m pytest tests` or
   `python3 -m unittest discover -s tests`) and were smoke-tested by feeding them sample stdin.
