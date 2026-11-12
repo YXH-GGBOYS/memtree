@@ -2,7 +2,7 @@
   "name": "memtree",
   "description": "MemTree: a workflow kit for Claude Code (authority layers, handoff cards, inject-only hooks).",
   "owner": {
-    "name": "MemTree contributors"
+    "name": "YXH-GGBOYS"
   },
   "plugins": [
     {
