@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- `token_report.py` counted the wrong calls in two ways. `--since` picked whole transcripts by file
+  modification time, which also pulled in old sessions the app had appended metadata to; it now
+  filters each call by its own timestamp (local midnight), and the new `--until` closes the window.
+  A call that a forked or copied session carried over from its parent was counted again; message
+  ids are now deduplicated across all transcripts, keeping the one in the transcript created first.
+  `<synthetic>` placeholder messages are no longer calls, and the first-call median only includes
+  sessions that started inside the window.
+- Docs and READMEs: the measured figures are re-run on a 21-day window with the fixed counting
+  (above 300K: about 76%, above 500K: about 43%, handoff at 450K: still about 30%), plus a note on
+  the two miscounting traps.
+
 ## 2.0.0 (2026-11-12)
 
 v2 changes what MemTree is for. v1 generated an LLM-written summary for every source file; v2 keeps

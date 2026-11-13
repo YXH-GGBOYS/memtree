@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -108,7 +109,7 @@ class TokenReportTest(TempCase):
                                                         "--simulate", "300000:100000"], self.tmp)
         self.assertEqual(code, 0, out)
         self.assertIn("2 main sessions, 6 calls, 1,275,000 context tokens", out)
-        self.assertIn("1 subagent / workflow / empty transcripts", out)
+        self.assertIn("1 subagent / workflow transcripts, or transcripts with no calls in the window", out)
         self.assertIn("| /work/app | 1 | 4 |", out)
         # app: 350K + 520K of 1,090K are in calls >300K; 520K of 1,090K >500K
         self.assertIn("| 80% | 48% | 100,000 | 520,000 |", out)
@@ -116,6 +117,54 @@ class TokenReportTest(TempCase):
         self.assertIn("Bash: git diff / show / log", out)
         self.assertIn("Same-file re-reads inside one session", out)
         self.assertIn("| 300,000 | 100,000 |", out)
+
+    def test_window_uses_each_calls_timestamp(self) -> None:
+        # Every file below was just written, so all pass the modification-time pre-filter; only the calls'
+        # own timestamps decide what is counted. TZ=UTC makes "local midnight" the Z midnight.
+        projects = self.tmp / "projects"
+
+        def at(ts: str, mid: str, ctx: int, model: str = "claude-test-model") -> dict:
+            return dict(assistant(mid, ctx, model=model), timestamp=ts)
+
+        write_transcript(projects / "-work-app" / "s1.jsonl", [
+            at("2026-10-09T23:59:59Z", "a1", 100_000),  # before --since; also the session's first call
+            at("2026-10-10T00:00:00Z", "a2", 200_000),
+            at("2026-10-12T00:00:00Z", "syn", 300_000, model="<synthetic>"),  # error placeholder, not a call
+            at("2026-10-15T12:00:00Z", "a3", 400_000),
+            at("2026-10-20T00:00:00Z", "a4", 600_000),  # at --until: excluded
+        ], cwd="/work/app")
+        write_transcript(projects / "-work-lib" / "s2.jsonl", [at("2026-09-01T00:00:00Z", "b1", 90_000)],
+                         cwd="/work/lib")  # an old session whose file was touched later
+        write_transcript(projects / "-work-new" / "s3.jsonl", [
+            at("2026-10-11T00:00:00Z", "c1", 80_000), at("2026-10-12T00:00:00Z", "c2", 150_000)], cwd="/work/new")
+        code, out = self.run_script("token_report.py", ["--projects-dir", str(projects), "--since", "2026-10-10",
+                                                        "--until", "2026-10-20"], self.tmp, TZ="UTC")
+        self.assertEqual(code, 0, out)
+        self.assertIn("calls from 2026-10-10 to before 2026-10-20", out)
+        self.assertIn("2 main sessions, 4 calls, 830,000 context tokens", out)
+        self.assertNotIn("/work/lib", out)
+        # app started before the window, so it has no first-call median; new started inside it
+        self.assertIn("| /work/app | 1 | 2 | 72% | 67% | 0.0% | - | 400,000 |", out)
+        self.assertIn("| /work/new | 1 | 2 | 28% | 0.0% | 0.0% | 80,000 | 150,000 |", out)
+        self.assertIn("| **all** | 2 | 4 | 100% | 48% | 0.0% | 80,000 | 400,000 |", out)
+
+    def test_forked_session_counted_once_in_the_older_file(self) -> None:
+        # A fork carries its parent's calls (same message ids). The fork's name sorts first, but the parent
+        # was created first, so the copied calls stay with the parent and only the fork's new call is its own.
+        projects = self.tmp / "projects"
+        parent = write_transcript(projects / "-work-app" / "z-parent.jsonl",
+                                  [assistant("p1", 100_000), assistant("p2", 200_000)], cwd="/work/app")
+        old = parent.stat().st_mtime - 100
+        os.utime(parent, (old, old))
+        write_transcript(projects / "-work-app" / "a-fork.jsonl",
+                         [assistant("p1", 100_000), assistant("p2", 200_000), assistant("f1", 250_000)],
+                         cwd="/work/fork")
+        code, out = self.run_script("token_report.py", ["--projects-dir", str(projects), "--since", "2000-01-01"],
+                                    self.tmp)
+        self.assertEqual(code, 0, out)
+        self.assertIn("2 main sessions, 3 calls, 550,000 context tokens", out)
+        self.assertIn("| /work/app | 1 | 2 |", out)
+        self.assertIn("| /work/fork | 1 | 1 |", out)
 
     def test_simulate_function(self) -> None:
         sim = token_report.simulate

@@ -22,15 +22,16 @@ the reasoning behind it, not anyone's project data.
 Every model call re-sends the whole conversation. So the cost of a session grows with how long it
 is times how many calls it makes, not with whether you happened to read a file twice.
 
-We measured this on one solo developer's Claude Code transcripts: about three weeks, across about
-20 projects. Only ratios are given here; your numbers will differ, and `scripts/token_report.py`
-computes them for you from your own local transcripts.
+We measured this on one solo developer's Claude Code transcripts: every main-session call in a
+21-day window, 147 sessions and 37,529 calls across 17 projects. Only ratios and counts are given
+here; your numbers will differ, and `scripts/token_report.py` computes them for you from your own
+local transcripts.
 
 | Observation | Kind |
 |---|---|
-| Literal re-reads of the same file within one session: under 0.1% of re-sent context | measured |
-| About 80% of re-sent context tokens were in calls whose context was above 300K tokens; about 50% above 500K | measured |
-| A fresh session already starts at about 90K-100K tokens of fixed overhead (tools, system prompt, CLAUDE.md) | measured |
+| Re-reading the same file within one session: about 0.1% of re-sent context, nearly all of it images; re-reads that returned identical text: about 0 | measured |
+| About 76% of re-sent context tokens were in calls whose context was above 300K tokens; about 43% above 500K | measured |
+| A fresh session already starts at a median of about 96K tokens of fixed overhead (tools, system prompt, CLAUDE.md) | measured |
 | Handing off to a fresh session at 450K (restarting at about 150K) would have cut re-sent context by about 30% | simulated, ignores what a handoff loses |
 | One common keyword grepped over the knowledge files returned about 500 KB; the same lookup through cards returned about 4 KB | measured once |
 
@@ -180,8 +181,9 @@ Two habits that the scripts make cheap:
 
 ## Measured, simulated, untested
 
-- Measured: the ratios in the first table, from one developer's local transcripts over about three
-  weeks. They describe that workload, not yours; run `token_report.py` for your own.
+- Measured: the ratios in the first table, from one developer's local transcripts over 21 days
+  (each call counted once, by its own timestamp). They describe that workload, not yours; run
+  `token_report.py` for your own.
 - Simulated: the ~30% saving from handing off at 450K. The simulation replays each session's real
   context sizes as if it had restarted at about 150K; it does not count the card, re-reading files in
   the new session, or information lost in the handoff. Read it as an upper bound. An earlier version

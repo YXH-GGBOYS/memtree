@@ -24,9 +24,18 @@ How it counts:
   * The simulation ignores what a handoff costs: the card, re-reading files in the new session, and any
     information lost. Treat its result as an upper bound.
   * Subagent / workflow transcripts are counted separately and left out of the main tables.
+  * The time window (--since / --until, local midnight, --until excluded) is applied to each call's own
+    timestamp. A file's modification time is only a pre-filter: Claude Code can append metadata lines to
+    a transcript long after its last call, so "files modified since X" also picks up sessions whose calls
+    are all older than X.
+  * The same call can appear in several transcripts: a forked or copied session carries its parent's
+    history with the same message ids. Each message id is counted once, in the transcript created first.
+  * `<synthetic>` placeholder messages (written on errors, usage all zero) are not calls.
+  * The first-call median only includes sessions whose first call falls inside the window.
 
 Examples:
   python3 token_report.py --since 2026-10-01
+  python3 token_report.py --since 2026-10-01 --until 2026-10-22
   python3 token_report.py --project my-app --out report.md --simulate 400000:120000
 """
 from __future__ import annotations
@@ -113,11 +122,27 @@ class Session:
     contexts: List[int] = field(default_factory=list)
     carry: DefaultDict[str, int] = field(default_factory=lambda: defaultdict(int))
     reads: List[Tuple[str, int]] = field(default_factory=list)
+    started_in_window: Optional[bool] = None  # was the session's first call inside the window?
 
 
-def parse(transcript: Path, kind: str, project: str) -> Session:
+def in_window(entry: Dict[str, Any], lo: float, hi: float) -> bool:
+    """True if the entry's own timestamp is in [lo, hi). Entries without a usable timestamp count as inside."""
+    ts = entry.get("timestamp")
+    if not isinstance(ts, str) or not ts:
+        return True
+    try:
+        t = datetime.fromisoformat(ts.replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return True
+    return lo <= t < hi
+
+
+def parse(transcript: Path, kind: str, project: str, lo: float = 0.0, hi: float = float("inf"),
+          seen: Optional[Set[str]] = None) -> Session:
+    """Parse one transcript. Calls outside [lo, hi) are skipped; pass one shared `seen` set for all
+    transcripts so a call copied into a forked session is counted only once."""
     s = Session(project=project, kind=kind)
-    seen: Set[str] = set()
+    seen = set() if seen is None else seen
     tools: Dict[str, Tuple[str, Dict[str, Any]]] = {}
     segment: List[Tuple[str, int, int]] = []  # (source, tokens, index of the next call)
 
@@ -151,9 +176,12 @@ def parse(transcript: Path, kind: str, project: str) -> Session:
             if t == "assistant":
                 usage = msg.get("usage") or {}
                 mid = str(msg.get("id") or d.get("requestId") or "")
-                if isinstance(usage, dict) and usage and mid not in seen:
-                    total = sum(int(usage.get(k) or 0) for k in KEYS)
-                    if total > 0:
+                total = sum(int(usage.get(k) or 0) for k in KEYS) if isinstance(usage, dict) else 0
+                if total > 0 and msg.get("model") != "<synthetic>" and mid not in seen:
+                    inside = in_window(d, lo, hi)
+                    if s.started_in_window is None:
+                        s.started_in_window = inside
+                    if inside:
                         seen.add(mid)
                         s.contexts.append(total)
                 for c in msg.get("content") or []:
@@ -183,7 +211,8 @@ def parse(transcript: Path, kind: str, project: str) -> Session:
                     if name == "Read":
                         path = WORKTREE.sub("", str(inp.get("file_path", "")))
                         cat = read_kind(path)
-                        s.reads.append((path, tok))
+                        if in_window(d, lo, hi):
+                            s.reads.append((path, tok))
                     elif name == "Bash":
                         cat = bash_kind(str(inp.get("command", "")))
                     elif name in ("Agent", "Task"):
@@ -198,13 +227,17 @@ def parse(transcript: Path, kind: str, project: str) -> Session:
 
 
 def transcripts(root: Path, since_ts: float, project_filter: Optional[str]) -> Iterator[Tuple[Path, str, str]]:
-    for p in sorted(root.rglob("*.jsonl")):
+    """Transcripts modified since `since_ts` (a pre-filter only), oldest-created first, so a call copied into
+    a forked session is attributed to the session it came from."""
+    found: List[Tuple[float, str, Path]] = []
+    for p in root.rglob("*.jsonl"):
         try:
-            if p.stat().st_mtime < since_ts:
-                continue
+            st = p.stat()
         except OSError:
             continue
-        sp = p.as_posix()
+        if st.st_mtime >= since_ts:
+            found.append((getattr(st, "st_birthtime", st.st_mtime), p.as_posix(), p))
+    for _, sp, p in sorted(found):
         kind = "subagent" if ("/subagents/" in sp or "/workflows/" in sp or p.name.startswith("agent-")) else "main"
         project = project_of(p)
         if project_filter and project_filter not in project:
@@ -233,14 +266,20 @@ def pct(a: float, b: float) -> str:
     return "<0.1%" if 0 < v < 0.001 else f"{v:.1%}" if v < 0.1 else f"{v:.0%}"
 
 
-def report(sessions: List[Session], since: str, top: int, sims: List[Tuple[int, int]]) -> str:
+def first_median(ss: List[Session]) -> str:
+    first = sorted(s.contexts[0] for s in ss if s.started_in_window)
+    return f"{first[len(first) // 2]:,}" if first else "-"
+
+
+def report(sessions: List[Session], window: str, top: int, sims: List[Tuple[int, int]]) -> str:
     mains = [s for s in sessions if s.kind == "main" and s.contexts]
     grand = sum(sum(s.contexts) for s in mains)
     calls = sum(len(s.contexts) for s in mains)
-    lines = [f"# Context token report (sessions modified since {since}; generated {datetime.now():%Y-%m-%d %H:%M} local)", "",
+    lines = [f"# Context token report ({window}; generated {datetime.now():%Y-%m-%d %H:%M} local)", "",
              f"{len(mains)} main sessions, {calls:,} calls, {grand:,} context tokens re-sent in total "
              f"({grand // max(calls, 1):,} per call on average).",
-             f"{len(sessions) - len(mains)} subagent / workflow / empty transcripts are not included below.", "",
+             f"{len(sessions) - len(mains)} subagent / workflow transcripts, or transcripts with no calls in the window, "
+             "are not included below.", "",
              "## By project", "",
              "| project | sessions | calls | share | in calls >300K | in calls >500K | first-call median | max |",
              "|---|---|---|---|---|---|---|---|"]
@@ -250,13 +289,11 @@ def report(sessions: List[Session], since: str, top: int, sims: List[Tuple[int, 
     for proj, ss in sorted(by_proj.items(), key=lambda kv: -sum(sum(s.contexts) for s in kv[1])):
         ctx = [x for s in ss for x in s.contexts]
         tot = sum(ctx)
-        first = sorted(s.contexts[0] for s in ss)
         lines.append(f"| {proj} | {len(ss)} | {len(ctx):,} | {pct(tot, grand)} | {pct(sum(x for x in ctx if x > 300_000), tot)} "
-                     f"| {pct(sum(x for x in ctx if x > 500_000), tot)} | {first[len(first) // 2]:,} | {max(ctx):,} |")
+                     f"| {pct(sum(x for x in ctx if x > 500_000), tot)} | {first_median(ss)} | {max(ctx):,} |")
     allctx = [x for s in mains for x in s.contexts]
     lines.append(f"| **all** | {len(mains)} | {calls:,} | 100% | {pct(sum(x for x in allctx if x > 300_000), grand)} "
-                 f"| {pct(sum(x for x in allctx if x > 500_000), grand)} | "
-                 f"{sorted(s.contexts[0] for s in mains)[len(mains) // 2]:,} | {max(allctx):,} |")
+                 f"| {pct(sum(x for x in allctx if x > 500_000), grand)} | {first_median(mains)} | {max(allctx):,} |")
 
     carry: DefaultDict[str, int] = defaultdict(int)
     for s in mains:
@@ -303,7 +340,8 @@ def parse_sim(text: str) -> Tuple[int, int]:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--since", help="YYYY-MM-DD (local time); default: 21 days ago")
+    ap.add_argument("--since", help="YYYY-MM-DD (local time): only calls from this day's midnight on; default: 21 days ago")
+    ap.add_argument("--until", help="YYYY-MM-DD (local time): only calls before this day's midnight; default: now")
     ap.add_argument("--project", help="only projects whose path contains this text")
     ap.add_argument("--projects-dir", help="transcript root (default: ~/.claude/projects)")
     ap.add_argument("--out", help="write the Markdown here instead of printing it")
@@ -313,15 +351,19 @@ def main() -> int:
     args = ap.parse_args()
 
     since = datetime.strptime(args.since, "%Y-%m-%d") if args.since else datetime.now() - timedelta(days=21)
+    until = datetime.strptime(args.until, "%Y-%m-%d").timestamp() if args.until else float("inf")
     root = Path(args.projects_dir).expanduser() if args.projects_dir else Path.home() / ".claude" / "projects"
     if not root.is_dir():
         print(f"token_report: no transcript folder at {root}", file=sys.stderr)
         return 1
-    sessions = [parse(p, kind, proj) for p, kind, proj in transcripts(root, since.timestamp(), args.project)]
+    seen: Set[str] = set()  # shared across transcripts: drops calls a forked / copied session carried over
+    sessions = [parse(p, kind, proj, since.timestamp(), until, seen)
+                for p, kind, proj in transcripts(root, since.timestamp(), args.project)]
     if not any(s.kind == "main" and s.contexts for s in sessions):
         print("token_report: no main sessions with usage in that range", file=sys.stderr)
         return 1
-    out = report(sessions, since.strftime("%Y-%m-%d"), args.top, list(DEFAULT_SIMS) + (args.simulate or []))
+    window = f"calls from {since:%Y-%m-%d}" + (f" to before {args.until}" if args.until else "")
+    out = report(sessions, window, args.top, list(DEFAULT_SIMS) + (args.simulate or []))
     if args.out:
         Path(args.out).write_text(out, encoding="utf-8")
         print(f"wrote {args.out} ({out.count(chr(10))} lines)")
