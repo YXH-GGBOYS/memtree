@@ -6,8 +6,8 @@ description: Query MemTree project knowledge cheaply - card lookup with memq acr
 # memtree-lookup
 
 Every token you pull into context is paid again on every later call of the session. A broad grep
-over knowledge files can return hundreds of KB (one measurement: about 500 KB for one common keyword,
-against about 4 KB for the same question through card lookup).
+over knowledge files can return hundreds of KB (one measurement over 26 knowledge files: 163 KB and
+256 KB for two common keywords, against 3.2 KB and 3.5 KB for the same questions through card lookup).
 
 ## 1. Cards first
 

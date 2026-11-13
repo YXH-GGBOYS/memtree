@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2.0.1 (2026-11-12)
 
 ### Fixed
 - `token_report.py` counted the wrong calls in two ways. `--since` picked whole transcripts by file
@@ -12,7 +12,8 @@
   sessions that started inside the window.
 - Docs and READMEs: the measured figures are re-run on a 21-day window with the fixed counting
   (above 300K: about 76%, above 500K: about 43%, handoff at 450K: still about 30%), plus a note on
-  the two miscounting traps.
+  the two miscounting traps. The grep vs card lookup comparison is re-measured on 26 knowledge files
+  (two keywords: 163 KB / 256 KB of grep output vs 3.2 KB / 3.5 KB of cards, 50x / 73x).
 
 ## 2.0.0 (2026-11-12)
 

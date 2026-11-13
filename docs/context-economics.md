@@ -35,7 +35,7 @@ counts are published.
 | How much of the re-sent context was in calls with context above 300K? | about 76% |
 | ... above 500K? | about 43% |
 | How large is a brand-new session before any work? | median about 96K tokens, most between 83K and 121K (tools, system prompt, CLAUDE.md) |
-| One common keyword over the knowledge files: grep vs card lookup | about 500 KB vs about 4 KB of output |
+| Two common keywords over the same 26 knowledge files: grep vs card lookup | 163 KB and 256 KB of grep output vs 3.2 KB and 3.5 KB of cards (50 and 73 times less) |
 
 The first row surprised us: "don't read the same file twice" is close to irrelevant. The second and
 third rows say where the tokens are: in the long tail of big-context calls.

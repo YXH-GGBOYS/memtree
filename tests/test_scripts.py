@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import sys
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -147,6 +148,21 @@ class TokenReportTest(TempCase):
         self.assertIn("| /work/app | 1 | 2 | 72% | 67% | 0.0% | - | 400,000 |", out)
         self.assertIn("| /work/new | 1 | 2 | 28% | 0.0% | 0.0% | 80,000 | 150,000 |", out)
         self.assertIn("| **all** | 2 | 4 | 100% | 48% | 0.0% | 80,000 | 400,000 |", out)
+
+    def test_old_session_touched_later_counts_zero_calls(self) -> None:
+        # The file was just written (modified inside the window), but every call in it is older.
+        path = write_transcript(self.tmp / "projects" / "-work-old" / "old.jsonl", [
+            dict(assistant("o1", 120_000), timestamp="2026-09-01T10:00:00Z"),
+            dict(assistant("o2", 350_000), timestamp="2026-10-09T23:59:59Z"),
+        ], cwd="/work/old")
+        lo = datetime(2026, 10, 10, tzinfo=timezone.utc).timestamp()
+        s = token_report.parse(path, "main", "/work/old", lo, float("inf"))
+        self.assertEqual(s.contexts, [])
+        self.assertFalse(s.started_in_window)
+        code, out = self.run_script("token_report.py", ["--projects-dir", str(self.tmp / "projects"),
+                                                        "--since", "2026-10-10"], self.tmp, TZ="UTC")
+        self.assertEqual(code, 1, out)
+        self.assertIn("no main sessions with usage in that range", out)
 
     def test_forked_session_counted_once_in_the_older_file(self) -> None:
         # A fork carries its parent's calls (same message ids). The fork's name sorts first, but the parent
@@ -317,7 +333,7 @@ class InitAndInstallTest(TempCase):
         plugin = json.loads((REPO / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
         market = json.loads((REPO / ".claude-plugin" / "marketplace.json").read_text(encoding="utf-8"))
         self.assertEqual(plugin["name"], "memtree")
-        self.assertEqual(plugin["version"], "2.0.0")
+        self.assertEqual(plugin["version"], "2.0.1")
         self.assertEqual(market["name"], "memtree")
         self.assertEqual(market["plugins"][0]["name"], plugin["name"])
         self.assertEqual(market["plugins"][0]["source"], "./")

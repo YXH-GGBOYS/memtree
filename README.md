@@ -33,7 +33,7 @@ local transcripts.
 | About 76% of re-sent context tokens were in calls whose context was above 300K tokens; about 43% above 500K | measured |
 | A fresh session already starts at a median of about 96K tokens of fixed overhead (tools, system prompt, CLAUDE.md) | measured |
 | Handing off to a fresh session at 450K (restarting at about 150K) would have cut re-sent context by about 30% | simulated, ignores what a handoff loses |
-| One common keyword grepped over the knowledge files returned about 500 KB; the same lookup through cards returned about 4 KB | measured once |
+| Two common keywords grepped over 26 knowledge files returned 163 KB and 256 KB; the same lookups through cards returned 3.2 KB and 3.5 KB (50 and 73 times less) | measured once |
 
 What follows from that:
 
